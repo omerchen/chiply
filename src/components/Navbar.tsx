@@ -7,14 +7,19 @@ import {
   IconButton,
   Drawer,
   List,
-  ListItem,
   ListItemButton,
   ListItemText,
+  ListItemIcon,
   Box,
   useTheme,
   useMediaQuery,
+  Tooltip,
 } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
+import LogoutIcon from '@mui/icons-material/Logout';
+import CasinoIcon from '@mui/icons-material/Casino';
+import HomeIcon from '@mui/icons-material/Home';
+import GroupsIcon from '@mui/icons-material/Groups';
 import { useNavigate, useLocation } from 'react-router-dom';
 
 interface NavbarProps {
@@ -33,7 +38,9 @@ const Navbar: React.FC<NavbarProps> = ({ onLogout }) => {
   };
 
   const menuItems = [
-    { text: 'Session Test', path: '/' },
+    { text: 'Home', path: '/', icon: <HomeIcon /> },
+    { text: 'Clubs', path: '/clubs', icon: <GroupsIcon /> },
+    { text: 'Session Test', path: '/test', icon: <CasinoIcon /> },
   ];
 
   const drawer = (
@@ -49,6 +56,7 @@ const Navbar: React.FC<NavbarProps> = ({ onLogout }) => {
           }}
           selected={location.pathname === item.path}
         >
+          <ListItemIcon>{item.icon}</ListItemIcon>
           <ListItemText primary={item.text} />
         </ListItemButton>
       ))}
@@ -79,6 +87,7 @@ const Navbar: React.FC<NavbarProps> = ({ onLogout }) => {
                   key={item.text}
                   color="inherit"
                   onClick={() => navigate(item.path)}
+                  startIcon={item.icon}
                   sx={{
                     backgroundColor: location.pathname === item.path ? 'rgba(255, 255, 255, 0.1)' : 'transparent',
                   }}
@@ -88,9 +97,11 @@ const Navbar: React.FC<NavbarProps> = ({ onLogout }) => {
               ))}
             </Box>
           )}
-          <Button color="inherit" onClick={onLogout}>
-            Logout
-          </Button>
+          <Tooltip title="Logout">
+            <IconButton color="inherit" onClick={onLogout} edge="end">
+              <LogoutIcon />
+            </IconButton>
+          </Tooltip>
         </Toolbar>
       </AppBar>
       <Drawer
@@ -99,12 +110,12 @@ const Navbar: React.FC<NavbarProps> = ({ onLogout }) => {
         open={mobileOpen}
         onClose={handleDrawerToggle}
         ModalProps={{
-          keepMounted: true, // Better mobile performance
+          keepMounted: true,
         }}
       >
         {drawer}
       </Drawer>
-      <Toolbar /> {/* This empty toolbar provides spacing below the fixed AppBar */}
+      <Toolbar />
     </>
   );
 };

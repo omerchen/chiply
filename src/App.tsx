@@ -1,11 +1,14 @@
 import React from "react";
-import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import { createBrowserRouter, RouterProvider, Navigate, Outlet } from "react-router-dom";
 import { Container, Paper } from "@mui/material";
 import { Player, Buyin } from "./types/types";
 import "./styles/main.scss";
 import Navbar from './components/Navbar';
 import { clearUserFromStorage, getUserFromStorage } from "./services/auth";
 import Login from "./pages/Login";
+import Home from "./pages/Home";
+import Clubs from "./pages/Clubs";
+import ErrorPage from "./pages/ErrorPage";
 import PlayerList from "./features/poker-session/components/PlayerManagement";
 import BuyinForm from "./features/poker-session/components/BuyinManagement";
 import CashoutForm from "./features/poker-session/components/CashoutManagement";
@@ -133,7 +136,7 @@ function SessionPage() {
   );
 }
 
-function Layout({ children }: { children: React.ReactNode }) {
+function Layout({ children }: { children?: React.ReactNode }) {
   const handleLogout = () => {
     clearUserFromStorage();
     window.location.href = '/login';
@@ -142,7 +145,7 @@ function Layout({ children }: { children: React.ReactNode }) {
   return (
     <>
       <Navbar onLogout={handleLogout} />
-      {children}
+      {children || <Outlet />}
     </>
   );
 }
@@ -179,25 +182,37 @@ function App() {
     return null;
   }
 
-  return (
-    <Router>
-      <Routes>
-        <Route path="/login" element={isAuthenticated ? <Navigate to="/" /> : <Login />} />
-        <Route
-          path="/"
-          element={
-            isAuthenticated ? (
-              <Layout>
-                <SessionPage />
-              </Layout>
-            ) : (
-              <Navigate to="/login" />
-            )
-          }
-        />
-      </Routes>
-    </Router>
-  );
+  const router = createBrowserRouter([
+    {
+      path: "/login",
+      element: isAuthenticated ? <Navigate to="/" /> : <Login />,
+    },
+    {
+      path: "/",
+      element: isAuthenticated ? <Layout /> : <Navigate to="/login" />,
+      errorElement: isAuthenticated ? <Layout><ErrorPage /></Layout> : <Navigate to="/login" />,
+      children: [
+        {
+          index: true,
+          element: <Home />,
+        },
+        {
+          path: "clubs",
+          element: <Clubs />,
+        },
+        {
+          path: "test",
+          element: <SessionPage />,
+        },
+        {
+          path: "*",
+          element: <ErrorPage />,
+        },
+      ],
+    },
+  ]);
+
+  return <RouterProvider router={router} />;
 }
 
 export default App;
