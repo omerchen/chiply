@@ -21,6 +21,7 @@ import ClubPlayerDetails from "./pages/ClubPlayerDetails";
 import ClubProtectedRoute from "./components/ClubProtectedRoute";
 import ClubSessions from "./pages/ClubSessions";
 import NewClubSession from "./pages/NewClubSession";
+import ClubSessionDetails from "./pages/ClubSessionDetails";
 
 function SessionPage() {
   console.log('Rendering SessionPage');
@@ -218,6 +219,10 @@ function App() {
         {
           path: "clubs/:clubId/sessions",
           element: <ClubProtectedRoute><ClubSessions /></ClubProtectedRoute>,
+        },
+        {
+          path: "clubs/:clubId/sessions/:sessionId",
+          element: <ClubProtectedRoute><ClubSessionDetails /></ClubProtectedRoute>,
         },
         {
           path: "clubs/:clubId/newSession",
