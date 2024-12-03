@@ -1,12 +1,13 @@
-import { ref, get } from 'firebase/database';
-import { db } from '../config/firebase';
+import { signInWithEmailAndPassword, signOut } from 'firebase/auth';
+import { db, auth } from '../config/firebase';
+import { readData, writeData } from './database';
 
 export interface StoredUser {
   id: string;
-  password: string;
 }
 
-export interface User extends StoredUser {
+export interface User {
+  id: string;
   email: string;
   firstName: string;
   lastName: string;
@@ -19,8 +20,6 @@ export interface User extends StoredUser {
 }
 
 interface FirebaseUser {
-  email: string;
-  password: string;
   firstName: string;
   lastName: string;
   clubs?: {
@@ -34,8 +33,6 @@ interface FirebaseUser {
 function isFirebaseUser(data: unknown): data is FirebaseUser {
   const user = data as FirebaseUser;
   return (
-    typeof user?.email === 'string' && 
-    typeof user?.password === 'string' &&
     typeof user?.firstName === 'string' &&
     typeof user?.lastName === 'string'
   );
@@ -45,8 +42,7 @@ const STORAGE_KEY = 'chiply_user';
 
 export const saveUserToStorage = (user: User) => {
   const storedUser: StoredUser = {
-    id: user.id,
-    password: user.password
+    id: user.id
   };
   localStorage.setItem(STORAGE_KEY, JSON.stringify(storedUser));
 };
@@ -58,56 +54,72 @@ export const getUserFromStorage = (): StoredUser | null => {
 
 export const clearUserFromStorage = () => {
   localStorage.removeItem(STORAGE_KEY);
+  signOut(auth);
 };
 
 export const getCurrentUser = async (): Promise<User | null> => {
   const storedUser = getUserFromStorage();
   if (!storedUser) return null;
 
-  const usersRef = ref(db, `users/${storedUser.id}`);
-  const snapshot = await get(usersRef);
-  
-  if (!snapshot.exists()) {
+  try {
+    const userData = await readData(`users/${storedUser.id}`);
+    
+    if (!userData) {
+      clearUserFromStorage();
+      return null;
+    }
+
+    const authUser = auth.currentUser;
+    if (!authUser?.email) {
+      clearUserFromStorage();
+      return null;
+    }
+
+    return {
+      ...userData,
+      id: storedUser.id,
+      email: authUser.email,
+      clubs: userData.clubs || {}
+    };
+  } catch (error) {
+    console.error('Error fetching user:', error);
     clearUserFromStorage();
     return null;
   }
-
-  const userData = snapshot.val();
-  return {
-    ...userData,
-    id: storedUser.id
-  };
 };
 
 export const login = async (email: string, password: string): Promise<User> => {
   try {
-    const usersRef = ref(db, 'users');
-    const snapshot = await get(usersRef);
+    const userCredential = await signInWithEmailAndPassword(auth, email, password);
+    const uid = userCredential.user.uid;
+
+    const userData = await readData(`users/${uid}`);
     
-    if (!snapshot.exists()) {
-      throw new Error('Invalid email or password');
+    if (!userData) {
+      throw new Error('User data not found. Please contact an administrator.');
     }
 
-    const users = snapshot.val();
-    const userEntries = Object.entries(users);
-    const userEntry = userEntries.find(([_, data]) => {
-      if (!isFirebaseUser(data)) return false;
-      return data.email === email && data.password === password;
-    });
-
-    if (!userEntry) {
-      throw new Error('Invalid email or password');
+    if (!isFirebaseUser(userData)) {
+      throw new Error('Invalid user data format. Please contact an administrator.');
     }
 
-    const [userId, userData] = userEntry as [string, FirebaseUser];
-    return {
-      id: userId,
-      ...userData
+    const user: User = {
+      id: uid,
+      email: userCredential.user.email!,
+      firstName: userData.firstName,
+      lastName: userData.lastName,
+      clubs: userData.clubs || {}
     };
+
+    saveUserToStorage(user);
+    return user;
     
   } catch (error) {
     console.error('Login error:', error);
     if (error instanceof Error) {
+      if (error.message.includes('auth/invalid-credential')) {
+        throw new Error('Invalid email or password');
+      }
       throw error;
     }
     throw new Error('An unexpected error occurred');
@@ -117,4 +129,30 @@ export const login = async (email: string, password: string): Promise<User> => {
 export const checkAuth = async (): Promise<boolean> => {
   const user = await getCurrentUser();
   return !!user;
+};
+
+export const createUserData = async (
+  uid: string,
+  userData: {
+    firstName: string;
+    lastName: string;
+    clubs?: {
+      [key: string]: {
+        id: string;
+        role: string;
+      };
+    };
+  }
+) => {
+  try {
+    await writeData(`users/${uid}`, {
+      firstName: userData.firstName,
+      lastName: userData.lastName,
+      clubs: userData.clubs || {}
+    });
+    return true;
+  } catch (error) {
+    console.error('Error creating user data:', error);
+    throw error;
+  }
 }; 
