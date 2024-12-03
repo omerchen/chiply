@@ -9,8 +9,8 @@ import {
   IconButton,
 } from "@mui/material";
 import DeleteIcon from "@mui/icons-material/Delete";
-import { Player } from "../types/types";
-import { formatMoney } from "../utils/formatters";
+import { Player, Buyin } from "../../../types/types";
+import { formatMoney } from "../../../utils/formatters";
 
 interface PlayerListProps {
   players: Player[];
@@ -70,7 +70,7 @@ function PlayerList({ players, onAddPlayer, onRemovePlayer }: PlayerListProps) {
             <ListItemText
               primary={player.name}
               secondary={`Total Buyins: ₪${formatMoney(
-                player.buyins.reduce((sum, buyin) => sum + buyin.amount, 0)
+                player.buyins.reduce((sum: number, buyin: Buyin) => sum + buyin.amount, 0)
               )}`}
             />
           </ListItem>

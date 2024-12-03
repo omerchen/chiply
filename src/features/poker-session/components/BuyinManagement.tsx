@@ -22,8 +22,8 @@ import {
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
 import { formatDistanceToNow, format, parseISO } from "date-fns";
-import { Player, Buyin } from "../types/types";
-import { formatMoney } from "../utils/formatters";
+import { Player, Buyin } from "../../../types/types";
+import { formatMoney } from "../../../utils/formatters";
 
 interface BuyinFormProps {
   players: Player[];

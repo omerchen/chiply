@@ -2,6 +2,7 @@ import { ref, get } from 'firebase/database';
 import { db } from '../config/firebase';
 
 export interface User {
+  id: string;
   email: string;
   password: string;
   clubs: {
@@ -10,6 +11,22 @@ export interface User {
       role: string;
     };
   };
+}
+
+interface FirebaseUser {
+  email: string;
+  password: string;
+  clubs?: {
+    [key: string]: {
+      id: string;
+      role: string;
+    };
+  };
+}
+
+function isFirebaseUser(data: unknown): data is FirebaseUser {
+  const user = data as FirebaseUser;
+  return typeof user?.email === 'string' && typeof user?.password === 'string';
 }
 
 const STORAGE_KEY = 'chiply_user';
@@ -31,32 +48,27 @@ export const login = async (email: string, password: string): Promise<User> => {
   try {
     console.log('Starting login process...');
     
-    // Get the test user reference directly
-    const userRef = ref(db, 'users/TESTUSER');
-    console.log('Fetching test user from database...');
-    
-    const snapshot = await get(userRef);
-    console.log('Database response received');
+    const usersRef = ref(db, 'users');
+    const snapshot = await get(usersRef);
     
     if (!snapshot.exists()) {
-      console.error('Test user not found in database');
       throw new Error('Invalid email or password');
     }
 
-    const userData = snapshot.val();
-    console.log('Found user data, verifying credentials...');
-    
-    // Verify credentials
-    if (userData.email !== email || userData.password !== password) {
-      console.error('Invalid credentials');
+    const users = snapshot.val();
+    const userEntries = Object.entries(users);
+    const userEntry = userEntries.find(([_, data]) => {
+      if (!isFirebaseUser(data)) return false;
+      return data.email === email && data.password === password;
+    });
+
+    if (!userEntry) {
       throw new Error('Invalid email or password');
     }
 
-    console.log('Login successful for user:', email);
-
-    // Return user data
+    const [userId, userData] = userEntry as [string, FirebaseUser];
     return {
-      id: 'TESTUSER',
+      id: userId,
       email: userData.email,
       password: userData.password,
       clubs: userData.clubs || {}
@@ -73,18 +85,12 @@ export const login = async (email: string, password: string): Promise<User> => {
 
 export const checkAuth = async (): Promise<boolean> => {
   const user = getUserFromStorage();
-  if (!user) {
-    console.log('No user found in storage');
-    return false;
-  }
+  if (!user) return false;
 
   try {
-    console.log('Verifying stored credentials for:', user.email);
     await login(user.email, user.password);
-    console.log('Stored credentials verified successfully');
     return true;
-  } catch (error) {
-    console.error('Auth check error:', error);
+  } catch {
     clearUserFromStorage();
     return false;
   }

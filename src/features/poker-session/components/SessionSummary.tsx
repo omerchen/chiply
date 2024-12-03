@@ -1,7 +1,7 @@
 import React from "react";
 import { Typography, List, ListItem, ListItemText } from "@mui/material";
-import { Player } from "../types/types";
-import { formatMoney } from "../utils/formatters";
+import { Player, Buyin } from "../../../types/types";
+import { formatMoney } from "../../../utils/formatters";
 
 interface GameSummaryProps {
   players: Player[];
@@ -9,24 +9,24 @@ interface GameSummaryProps {
 
 function GameSummary({ players }: GameSummaryProps) {
   const allBuyins = players.reduce(
-    (sum, player) =>
+    (sum: number, player) =>
       sum +
-      player.buyins.reduce((playerSum, buyin) => playerSum + buyin.amount, 0),
+      player.buyins.reduce((playerSum: number, buyin: Buyin) => playerSum + buyin.amount, 0),
     0
   );
 
   const totalCashouts = players
     .filter((player) => player.cashout !== null)
-    .reduce((sum, player) => sum + player.cashout!, 0);
+    .reduce((sum: number, player) => sum + player.cashout!, 0);
 
   const moneyInPlay = allBuyins - totalCashouts;
 
   const totalPayBox = players.reduce(
-    (sum, player) =>
+    (sum: number, player) =>
       sum +
       player.buyins
-        .filter((buyin) => buyin.isPayBox)
-        .reduce((playerSum, buyin) => playerSum + buyin.amount, 0),
+        .filter((buyin: Buyin) => buyin.isPayBox)
+        .reduce((playerSum: number, buyin: Buyin) => playerSum + buyin.amount, 0),
     0
   );
 
@@ -53,7 +53,7 @@ function GameSummary({ players }: GameSummaryProps) {
       <List>
         {players.map((player) => {
           const playerTotal = player.buyins.reduce(
-            (sum, buyin) => sum + buyin.amount,
+            (sum: number, buyin: Buyin) => sum + buyin.amount,
             0
           );
           return (

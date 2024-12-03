@@ -26,8 +26,8 @@ function Login() {
   useEffect(() => {
     // Check if fields are autofilled
     const checkAutofill = () => {
-      const emailInput = document.querySelector('input[type="email"]');
-      const passwordInput = document.querySelector('input[type="password"]');
+      const emailInput = document.querySelector('input[type="email"]') as HTMLInputElement;
+      const passwordInput = document.querySelector('input[type="password"]') as HTMLInputElement;
       
       if (emailInput && passwordInput) {
         const isAnyAutofilled = 
@@ -60,20 +60,11 @@ function Login() {
     }
 
     try {
-      console.log('Starting login attempt...');
-      console.log('Attempting login with email:', email);
-      
       const user = await login(email, password);
-      
-      console.log('Login successful, user data:', {
-        email: user.email,
-        hasClubs: Object.keys(user.clubs || {}).length > 0
-      });
-      
       saveUserToStorage(user);
-      console.log('User data saved to storage');
       
-      navigate('/');
+      // Force a page reload to update auth state across the app
+      window.location.href = '/';
     } catch (err) {
       console.error('Login error:', err);
       if (err instanceof Error) {
@@ -81,7 +72,6 @@ function Login() {
       } else {
         setError('An unexpected error occurred. Please try again.');
       }
-    } finally {
       setLoading(false);
     }
   };

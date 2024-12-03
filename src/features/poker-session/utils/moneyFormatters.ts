@@ -1,4 +1,4 @@
-import { CURRENCY_SIGN, CURRENCY_LOCALE } from "../config/constants";
+import { CURRENCY_SIGN, CURRENCY_LOCALE } from "../../../config/constants";
 
 export const formatMoney = (amount: number) => {
   const formattedNumber = new Intl.NumberFormat(CURRENCY_LOCALE, {

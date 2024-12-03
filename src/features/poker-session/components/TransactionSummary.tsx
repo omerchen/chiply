@@ -1,7 +1,7 @@
 import React from "react";
 import { Typography, List, ListItem, ListItemText } from "@mui/material";
-import { Player, Transaction } from "../types/types";
-import { formatMoney } from "../utils/formatters";
+import { Player, Transaction, Buyin } from "../../../types/types";
+import { formatMoney } from "../../../utils/formatters";
 
 interface TransactionListProps {
   players: Player[];
@@ -16,7 +16,7 @@ function TransactionList({ players }: TransactionListProps) {
         name: player.name,
         balance:
           player.cashout! -
-          player.buyins.reduce((sum, buyin) => sum + buyin.amount, 0),
+          player.buyins.reduce((sum: number, buyin: Buyin) => sum + buyin.amount, 0),
       }));
 
     const transactions: Transaction[] = [];
@@ -58,8 +58,8 @@ function TransactionList({ players }: TransactionListProps) {
       .filter((player) => player.cashout !== null)
       .forEach((player) => {
         const payBoxAmount = player.buyins
-          .filter((buyin) => buyin.isPayBox)
-          .reduce((sum, buyin) => sum + buyin.amount, 0);
+          .filter((buyin: Buyin) => buyin.isPayBox)
+          .reduce((sum: number, buyin: Buyin) => sum + buyin.amount, 0);
           
         if (payBoxAmount > 0) {
           transactions.push({

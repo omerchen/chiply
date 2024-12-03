@@ -11,8 +11,8 @@ import {
   ListItem,
   ListItemText,
 } from "@mui/material";
-import { Player } from "../types/types";
-import { formatMoney } from "../utils/formatters";
+import { Player, Buyin } from "../../../types/types";
+import { formatMoney } from "../../../utils/formatters";
 
 interface CashoutFormProps {
   players: Player[];
