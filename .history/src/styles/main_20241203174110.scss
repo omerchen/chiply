@@ -1,0 +1,44 @@
+.app-container {
+  padding: 16px;
+  margin-top: 16px;
+  margin-bottom: 16px;
+}
+
+.section {
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.form-row {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.buyin-list {
+  margin-top: 16px;
+}
+
+.transaction-item {
+  background-color: #f5f5f5;
+  border-radius: 4px;
+  margin-bottom: 8px;
+}
+
+// Tablet and above
+@media (min-width: 600px) {
+  .form-row {
+    flex-direction: row;
+    align-items: flex-start;
+
+    .MuiTextField-root,
+    .MuiFormControl-root {
+      flex: 1;
+    }
+
+    .MuiButton-root {
+      min-width: 120px;
+    }
+  }
+}

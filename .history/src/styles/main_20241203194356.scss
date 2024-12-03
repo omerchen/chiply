@@ -1,0 +1,55 @@
+@import 'colors';
+
+.app-container {
+  padding: 16px;
+  margin-top: 16px;
+  margin-bottom: 16px;
+  background-color: $background-default;
+  color: $text-primary;
+}
+
+.section {
+  padding: 16px;
+  margin-bottom: 16px;
+  background-color: $background-paper;
+  border: 1px solid $grey-200;
+}
+
+.form-row {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.buyin-list {
+  margin-top: 16px;
+}
+
+.transaction-item {
+  background-color: $grey-100;
+  border-radius: 4px;
+  margin-bottom: 8px;
+  border: 1px solid $grey-200;
+  
+  &:hover {
+    background-color: $action-hover;
+  }
+}
+
+// Tablet and above
+@media (min-width: 600px) {
+  .form-row {
+    flex-direction: row;
+    align-items: flex-start;
+
+    .MuiTextField-root,
+    .MuiFormControl-root {
+      flex: 1;
+    }
+
+    .MuiButton-root {
+      min-width: 120px;
+    }
+  }
+}

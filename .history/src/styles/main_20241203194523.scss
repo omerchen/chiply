@@ -54,59 +54,6 @@
   }
 }
 
-// Game Summary Metrics
-.game-summary {
-  .metric {
-    padding: 12px;
-    border-radius: 8px;
-    margin-bottom: 16px;
-    transition: all 0.2s ease;
-
-    &.total-buyins {
-      background-color: $primary-50;
-      color: $primary-900;
-      border-left: 4px solid $primary-500;
-    }
-
-    &.money-in-play {
-      background-color: $secondary-50;
-      color: $secondary-900;
-      border-left: 4px solid $secondary-500;
-    }
-
-    &.paybox {
-      background-color: $accent-50;
-      color: $accent-900;
-      border-left: 4px solid $accent-500;
-    }
-
-    .MuiTypography-h6 {
-      font-weight: 500;
-      margin-bottom: 4px;
-    }
-
-    &:hover {
-      transform: translateX(4px);
-    }
-  }
-
-  .player-stats {
-    .MuiListItem-root {
-      border-radius: 4px;
-      margin-bottom: 4px;
-      
-      .MuiListItemText-primary {
-        color: $primary-700;
-        font-weight: 500;
-      }
-      
-      .MuiListItemText-secondary {
-        color: $text-secondary;
-      }
-    }
-  }
-}
-
 .MuiTextField-root, .MuiFormControl-root {
   .MuiOutlinedInput-root {
     &.Mui-focused .MuiOutlinedInput-notchedOutline {

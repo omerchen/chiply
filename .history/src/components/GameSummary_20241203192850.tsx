@@ -31,32 +31,26 @@ function GameSummary({ players }: GameSummaryProps) {
   );
 
   return (
-    <div className="game-summary">
+    <div>
       <Typography variant="h5" gutterBottom>
         Game Summary
       </Typography>
 
-      <div className="metric total-buyins">
-        <Typography variant="h6">
-          Total Buyins: {formatMoney(allBuyins)}
-        </Typography>
-      </div>
+      <Typography variant="h6" color="primary" gutterBottom>
+        Total Buyins: {formatMoney(allBuyins)}
+      </Typography>
 
-      <div className="metric money-in-play">
-        <Typography variant="h6">
-          Total Money in Play: {formatMoney(moneyInPlay)}
-        </Typography>
-      </div>
+      <Typography variant="h6" color="primary">
+        Total Money in Play: {formatMoney(moneyInPlay)}
+      </Typography>
 
       {totalPayBox > 0 && (
-        <div className="metric paybox">
-          <Typography variant="h6">
-            Total Money in PayBox: {formatMoney(totalPayBox)}
-          </Typography>
-        </div>
+        <Typography variant="h6" color="primary">
+          Total Money in PayBox: {formatMoney(totalPayBox)}
+        </Typography>
       )}
 
-      <List className="player-stats">
+      <List>
         {players.map((player) => {
           const playerTotal = player.buyins.reduce(
             (sum, buyin) => sum + buyin.amount,
@@ -66,7 +60,7 @@ function GameSummary({ players }: GameSummaryProps) {
             <ListItem key={player.id}>
               <ListItemText
                 primary={player.name}
-                secondary={`Total Buyins: ${formatMoney(playerTotal)}`}
+                secondary={`Total Buyins: ₪${formatMoney(playerTotal)}`}
               />
             </ListItem>
           );
