@@ -16,6 +16,8 @@ import GameSummary from "./features/poker-session/components/SessionSummary";
 import TransactionList from "./features/poker-session/components/TransactionSummary";
 import ClubDetails from "./pages/ClubDetails";
 import ClubPlayers from "./pages/ClubPlayers";
+import NewClubPlayer from "./pages/NewClubPlayer";
+import ClubPlayerDetails from "./pages/ClubPlayerDetails";
 import ClubProtectedRoute from "./components/ClubProtectedRoute";
 
 function SessionPage() {
@@ -210,6 +212,14 @@ function App() {
         {
           path: "clubs/:clubId/players",
           element: <ClubProtectedRoute><ClubPlayers /></ClubProtectedRoute>,
+        },
+        {
+          path: "clubs/:clubId/newPlayer",
+          element: <ClubProtectedRoute><NewClubPlayer /></ClubProtectedRoute>,
+        },
+        {
+          path: "clubs/:clubId/players/:playerId",
+          element: <ClubProtectedRoute><ClubPlayerDetails /></ClubProtectedRoute>,
         },
         {
           path: "test",

@@ -16,24 +16,19 @@ export const getUserClubs = async (): Promise<Club[]> => {
     const clubsData = await readData("clubs");
     if (!clubsData) return [];
 
-    return Object.values(user.clubs)
-      .filter(
-        (clubData): clubData is { id: string; role: string } =>
-          typeof clubData === "object" &&
-          clubData !== null &&
-          "id" in clubData &&
-          "role" in clubData
-      )
-      .map(
-        (clubData) =>
-          ({
-            id: clubData.id,
-            name: clubsData[clubData.id]?.name || "Unknown Club",
-            description: clubsData[clubData.id]?.description,
-            role: clubData.role === "member" ? "member" : "admin",
-          } as Club)
-      )
-      .filter((club) => club.name !== "Unknown Club");
+    return Object.entries(user.clubs)
+      .map(([clubId, clubData]) => {
+        const club = clubsData[clubId];
+        if (!club) return null;
+
+        return {
+          id: clubId,
+          name: club.name || "Unknown Club",
+          description: club.description,
+          role: clubData.role
+        };
+      })
+      .filter((club): club is Club => club !== null);
   } catch (error) {
     console.error("Error fetching clubs:", error);
     return [];
@@ -42,21 +37,12 @@ export const getUserClubs = async (): Promise<Club[]> => {
 
 export const getClubDetails = async (clubId: string): Promise<Club | null> => {
   try {
-    const clubData = await readData(`clubs/${clubId}`);
-    if (!clubData) {
-      return null;
-    }
+    const [clubData, user] = await Promise.all([
+      readData(`clubs/${clubId}`),
+      getCurrentUser()
+    ]);
 
-    const user = await getCurrentUser();
-    if (!user || !user.clubs) {
-      return null;
-    }
-
-    const userClubData = Object.values(user.clubs).find(
-      (club) => typeof club === "object" && club !== null && club.id === clubId
-    );
-
-    if (!userClubData || typeof userClubData !== "object") {
+    if (!clubData || !user || !user.clubs || !user.clubs[clubId]) {
       return null;
     }
 
@@ -64,10 +50,7 @@ export const getClubDetails = async (clubId: string): Promise<Club | null> => {
       id: clubId,
       name: clubData.name,
       description: clubData.description,
-      role:
-        (userClubData as { role: string }).role === "member"
-          ? "member"
-          : "admin",
+      role: user.clubs[clubId].role
     };
   } catch (error) {
     console.error("Error fetching club details:", error);

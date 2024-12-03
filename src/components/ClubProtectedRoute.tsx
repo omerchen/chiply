@@ -17,15 +17,23 @@ function ClubProtectedRoute({ children }: ClubProtectedRouteProps) {
   useEffect(() => {
     const checkAccess = async () => {
       try {
+        console.log('Checking access for club:', clubId);
         const user = await getCurrentUser();
+        console.log('Current user:', user);
+        
         if (!user) {
+          console.log('No user found');
           setError('Authentication required');
           setLoading(false);
           return;
         }
 
-        const userClubs = user.clubs || {};
-        const hasClubAccess = Object.values(userClubs).some(club => club.id === clubId);
+        console.log('User clubs:', user.clubs);
+        console.log('Looking for club:', clubId);
+        
+        const hasClubAccess = !!(user.clubs && clubId && user.clubs[clubId]?.role);
+        console.log('Has access:', hasClubAccess);
+        
         setHasAccess(hasClubAccess);
       } catch (err) {
         console.error('Error checking club access:', err);
@@ -37,6 +45,8 @@ function ClubProtectedRoute({ children }: ClubProtectedRouteProps) {
 
     checkAccess();
   }, [clubId]);
+
+  console.log('Component state:', { loading, hasAccess, error, clubId });
 
   if (loading) {
     return (

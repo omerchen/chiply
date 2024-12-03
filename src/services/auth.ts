@@ -13,8 +13,7 @@ export interface User {
   lastName: string;
   clubs: {
     [key: string]: {
-      id: string;
-      role: string;
+      role: "admin" | "member";
     };
   };
 }
@@ -24,8 +23,7 @@ interface FirebaseUser {
   lastName: string;
   clubs?: {
     [key: string]: {
-      id: string;
-      role: string;
+      role: "admin" | "member";
     };
   };
 }
@@ -138,8 +136,7 @@ export const createUserData = async (
     lastName: string;
     clubs?: {
       [key: string]: {
-        id: string;
-        role: string;
+        role: "admin" | "member";
       };
     };
   }

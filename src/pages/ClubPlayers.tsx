@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import {
   Container,
   Typography,
@@ -33,6 +33,7 @@ interface ClubPlayer {
 
 function ClubPlayers() {
   const { clubId } = useParams<{ clubId: string }>();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [players, setPlayers] = useState<Player[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -43,7 +44,7 @@ function ClubPlayers() {
       try {
         console.log('Fetching players for club:', clubId);
         
-        // First get club's player IDs
+        // First get club's data
         const clubData = await readData(`clubs/${clubId}`);
         setClubName(clubData.name || '');
         console.log('Club data:', clubData);
@@ -55,11 +56,8 @@ function ClubPlayers() {
           return;
         }
 
-        // Get array of player IDs from the numbered objects
-        const playerIds = Object.values(clubData.players)
-          .map((player: any) => player.id)
-          .filter(Boolean);
-
+        // Get player IDs from the club's players object
+        const playerIds = Object.keys(clubData.players);
         console.log('Player IDs:', playerIds);
 
         // Then fetch each player's details
@@ -107,8 +105,7 @@ function ClubPlayers() {
   }, [clubId]);
 
   const handleInvitePlayer = () => {
-    // TODO: Implement invite player functionality
-    console.log('Invite player clicked');
+    navigate(`/clubs/${clubId}/newPlayer`);
   };
 
   if (loading) {
@@ -202,9 +199,11 @@ function ClubPlayers() {
                 {players.map((player) => (
                   <TableRow 
                     key={player.id}
+                    onClick={() => navigate(`/clubs/${clubId}/players/${player.id}`)}
                     sx={{ 
                       '&:hover': { 
-                        backgroundColor: 'rgba(103, 58, 183, 0.04)' 
+                        backgroundColor: 'rgba(103, 58, 183, 0.04)',
+                        cursor: 'pointer'
                       }
                     }}
                   >

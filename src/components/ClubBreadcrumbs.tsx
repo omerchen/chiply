@@ -25,13 +25,19 @@ const BreadcrumbText = styled(Typography)(({ theme }) => ({
   lineHeight: '20px'
 }));
 
+interface ParentPage {
+  name: string;
+  path: string;
+}
+
 interface ClubBreadcrumbsProps {
   clubId: string;
   clubName: string;
   currentPage?: string;
+  parentPage?: ParentPage;
 }
 
-function ClubBreadcrumbs({ clubId, clubName, currentPage }: ClubBreadcrumbsProps) {
+function ClubBreadcrumbs({ clubId, clubName, currentPage, parentPage }: ClubBreadcrumbsProps) {
   return (
     <Box sx={{ mb: 3, mt: 1 }}>
       <Stack 
@@ -52,20 +58,52 @@ function ClubBreadcrumbs({ clubId, clubName, currentPage }: ClubBreadcrumbsProps
 
         {currentPage ? (
           <>
-            <BreadcrumbLink to={`/clubs/${clubId}`}>
-              {clubName}
-            </BreadcrumbLink>
+            {parentPage ? (
+              <>
+                <BreadcrumbLink to={`/clubs/${clubId}`}>
+                  {clubName}
+                </BreadcrumbLink>
 
-            <NavigateNextIcon 
-              sx={{ 
-                color: 'text.secondary',
-                fontSize: 18
-              }} 
-            />
+                <NavigateNextIcon 
+                  sx={{ 
+                    color: 'text.secondary',
+                    fontSize: 18
+                  }} 
+                />
 
-            <BreadcrumbText variant="body2">
-              {currentPage}
-            </BreadcrumbText>
+                <BreadcrumbLink to={`/clubs/${clubId}/${parentPage.path}`}>
+                  {parentPage.name}
+                </BreadcrumbLink>
+
+                <NavigateNextIcon 
+                  sx={{ 
+                    color: 'text.secondary',
+                    fontSize: 18
+                  }} 
+                />
+
+                <BreadcrumbText variant="body2">
+                  {currentPage}
+                </BreadcrumbText>
+              </>
+            ) : (
+              <>
+                <BreadcrumbLink to={`/clubs/${clubId}`}>
+                  {clubName}
+                </BreadcrumbLink>
+
+                <NavigateNextIcon 
+                  sx={{ 
+                    color: 'text.secondary',
+                    fontSize: 18
+                  }} 
+                />
+
+                <BreadcrumbText variant="body2">
+                  {currentPage}
+                </BreadcrumbText>
+              </>
+            )}
           </>
         ) : (
           <BreadcrumbText variant="body2">

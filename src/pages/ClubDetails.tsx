@@ -51,8 +51,7 @@ function ClubDetails() {
           return;
         }
 
-        const userClubs = user.clubs || {};
-        const hasClubAccess = Object.values(userClubs).some(club => club.id === clubId);
+        const hasClubAccess = user.clubs && user.clubs[clubId] !== undefined;
         setHasAccess(hasClubAccess);
 
         if (!hasClubAccess) {
