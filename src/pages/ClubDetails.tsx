@@ -20,6 +20,7 @@ import { getCurrentUser } from '../services/auth';
 import { getClubDetails } from '../services/clubs';
 import ErrorPage from './ErrorPage';
 import ClubBreadcrumbs from '../components/ClubBreadcrumbs';
+import ActionButton from '../components/ActionButton';
 
 interface ClubDetails {
   id: string;
@@ -202,30 +203,16 @@ function ClubDetails() {
 
         {/* Action Buttons */}
         <Box sx={{ position: 'fixed', bottom: 24, right: 24, display: 'flex', gap: 2 }}>
-          <Tooltip title="Invite Player">
-            <Fab 
-              color="primary" 
-              aria-label="invite player"
-              sx={{ 
-                bgcolor: '#673ab7',
-                '&:hover': { bgcolor: '#5e35b1' }
-              }}
-            >
-              <PersonAddIcon />
-            </Fab>
-          </Tooltip>
-          <Tooltip title="New Session">
-            <Fab 
-              color="primary" 
-              aria-label="new session"
-              sx={{ 
-                bgcolor: '#673ab7',
-                '&:hover': { bgcolor: '#5e35b1' }
-              }}
-            >
-              <AddIcon />
-            </Fab>
-          </Tooltip>
+          <ActionButton
+            title="Invite Player"
+            onClick={() => navigate(`/clubs/${clubId}/newPlayer`)}
+            icon={<PersonAddIcon />}
+          />
+          <ActionButton
+            title="New Session"
+            onClick={() => navigate(`/clubs/${clubId}/newSession`)}
+            icon={<AddIcon />}
+          />
         </Box>
       </Paper>
     </Container>

@@ -60,15 +60,15 @@ function NewClubPlayer() {
 
       // Find player by email and include their ID from the key
       const [playerId, playerData] = Object.entries(playersData || {}).find(
-        ([_, player]) => player.email.toLowerCase() === email.toLowerCase()
+        ([_, player]) => (player as PlayerData).email.toLowerCase() === email.toLowerCase()
       ) || [];
 
       console.log('Found player:', playerId, playerData);
 
       if (playerId && playerData) {
         setFoundPlayer({
-          id: playerId,
-          ...playerData
+          ...(playerData as PlayerData),
+          id: playerId
         });
         setShowConfirmDialog(true);
       } else {

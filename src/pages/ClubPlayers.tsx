@@ -11,14 +11,13 @@ import {
   TableHead,
   TableRow,
   CircularProgress,
-  Box,
-  Fab,
-  Tooltip
+  Box
 } from '@mui/material';
 import PeopleOutlineIcon from '@mui/icons-material/PeopleOutline';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import { readData } from '../services/database';
 import ClubBreadcrumbs from '../components/ClubBreadcrumbs';
+import ActionButton from '../components/ActionButton';
 
 interface Player {
   id: string;
@@ -104,10 +103,6 @@ function ClubPlayers() {
     fetchPlayers();
   }, [clubId]);
 
-  const handleInvitePlayer = () => {
-    navigate(`/clubs/${clubId}/newPlayer`);
-  };
-
   if (loading) {
     return (
       <Container sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
@@ -132,16 +127,6 @@ function ClubPlayers() {
       </Container>
     );
   }
-
-  const fabStyle = {
-    position: 'fixed',
-    bottom: 32,
-    right: 32,
-    bgcolor: '#673ab7',
-    '&:hover': {
-      bgcolor: '#563098'
-    }
-  };
 
   return (
     <Container maxWidth="lg" sx={{ mt: 3, mb: 3 }}>
@@ -219,15 +204,13 @@ function ClubPlayers() {
         </Paper>
       )}
 
-      <Tooltip title="Invite Player" placement="left">
-        <Fab
-          aria-label="invite player"
-          onClick={handleInvitePlayer}
-          sx={fabStyle}
-        >
-          <PersonAddIcon sx={{ color: '#fff' }} />
-        </Fab>
-      </Tooltip>
+      <Box sx={{ position: 'fixed', bottom: 32, right: 32 }}>
+        <ActionButton
+          title="Invite Player"
+          onClick={() => navigate(`/clubs/${clubId}/newPlayer`)}
+          icon={<PersonAddIcon />}
+        />
+      </Box>
     </Container>
   );
 }

@@ -16,7 +16,7 @@ export const getUserClubs = async (): Promise<Club[]> => {
     const clubsData = await readData("clubs");
     if (!clubsData) return [];
 
-    return Object.entries(user.clubs)
+    const clubs = Object.entries(user.clubs)
       .map(([clubId, clubData]) => {
         const club = clubsData[clubId];
         if (!club) return null;
@@ -28,7 +28,9 @@ export const getUserClubs = async (): Promise<Club[]> => {
           role: clubData.role
         };
       })
-      .filter((club): club is Club => club !== null);
+      .filter((club): club is NonNullable<typeof club> => club !== null);
+
+    return clubs;
   } catch (error) {
     console.error("Error fetching clubs:", error);
     return [];
