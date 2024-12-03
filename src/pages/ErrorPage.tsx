@@ -1,17 +1,14 @@
 import React from 'react';
-import { Container, Typography, Paper, Button, Box } from '@mui/material';
-import { useNavigate, useRouteError } from 'react-router-dom';
+import { Container, Typography, Paper, Box, Button } from '@mui/material';
 import SentimentDissatisfiedIcon from '@mui/icons-material/SentimentDissatisfied';
+import { useNavigate } from 'react-router-dom';
 import { getUserFromStorage } from '../services/auth';
 
-interface ErrorResponse {
-  status?: number;
-  statusText?: string;
-  message?: string;
+interface ErrorPageProps {
+  customMessage?: string;
 }
 
-function ErrorPage() {
-  const error = useRouteError() as ErrorResponse;
+function ErrorPage({ customMessage }: ErrorPageProps) {
   const navigate = useNavigate();
   const isAuthenticated = !!getUserFromStorage();
 
@@ -50,7 +47,7 @@ function ErrorPage() {
               WebkitTextFillColor: 'transparent'
             }}
           >
-            {error.status === 404 ? "Page Not Found" : "Oops!"}
+            Oops!
           </Typography>
           <Typography 
             variant="h6" 
@@ -61,9 +58,7 @@ function ErrorPage() {
               lineHeight: 1.6
             }}
           >
-            {error.status === 404 
-              ? "We couldn't find the page you're looking for. Let's get you back on track!"
-              : "Something unexpected happened. Don't worry, we'll help you get back on track!"}
+            {customMessage || "Something unexpected happened. Don't worry, we'll help you get back on track!"}
           </Typography>
         </Box>
         <Button

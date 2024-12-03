@@ -15,6 +15,8 @@ import CashoutForm from "./features/poker-session/components/CashoutManagement";
 import GameSummary from "./features/poker-session/components/SessionSummary";
 import TransactionList from "./features/poker-session/components/TransactionSummary";
 import ClubDetails from "./pages/ClubDetails";
+import ClubPlayers from "./pages/ClubPlayers";
+import ClubProtectedRoute from "./components/ClubProtectedRoute";
 
 function SessionPage() {
   console.log('Rendering SessionPage');
@@ -203,7 +205,11 @@ function App() {
         },
         {
           path: "clubs/:clubId",
-          element: <ClubDetails />,
+          element: <ClubProtectedRoute><ClubDetails /></ClubProtectedRoute>,
+        },
+        {
+          path: "clubs/:clubId/players",
+          element: <ClubProtectedRoute><ClubPlayers /></ClubProtectedRoute>,
         },
         {
           path: "test",
