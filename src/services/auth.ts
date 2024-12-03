@@ -1,10 +1,15 @@
 import { ref, get } from 'firebase/database';
 import { db } from '../config/firebase';
 
-export interface User {
+export interface StoredUser {
   id: string;
-  email: string;
   password: string;
+}
+
+export interface User extends StoredUser {
+  email: string;
+  firstName: string;
+  lastName: string;
   clubs: {
     [key: string]: {
       id: string;
@@ -16,6 +21,8 @@ export interface User {
 interface FirebaseUser {
   email: string;
   password: string;
+  firstName: string;
+  lastName: string;
   clubs?: {
     [key: string]: {
       id: string;
@@ -26,16 +33,25 @@ interface FirebaseUser {
 
 function isFirebaseUser(data: unknown): data is FirebaseUser {
   const user = data as FirebaseUser;
-  return typeof user?.email === 'string' && typeof user?.password === 'string';
+  return (
+    typeof user?.email === 'string' && 
+    typeof user?.password === 'string' &&
+    typeof user?.firstName === 'string' &&
+    typeof user?.lastName === 'string'
+  );
 }
 
 const STORAGE_KEY = 'chiply_user';
 
 export const saveUserToStorage = (user: User) => {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(user));
+  const storedUser: StoredUser = {
+    id: user.id,
+    password: user.password
+  };
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(storedUser));
 };
 
-export const getUserFromStorage = (): User | null => {
+export const getUserFromStorage = (): StoredUser | null => {
   const userData = localStorage.getItem(STORAGE_KEY);
   return userData ? JSON.parse(userData) : null;
 };
@@ -44,10 +60,27 @@ export const clearUserFromStorage = () => {
   localStorage.removeItem(STORAGE_KEY);
 };
 
+export const getCurrentUser = async (): Promise<User | null> => {
+  const storedUser = getUserFromStorage();
+  if (!storedUser) return null;
+
+  const usersRef = ref(db, `users/${storedUser.id}`);
+  const snapshot = await get(usersRef);
+  
+  if (!snapshot.exists()) {
+    clearUserFromStorage();
+    return null;
+  }
+
+  const userData = snapshot.val();
+  return {
+    ...userData,
+    id: storedUser.id
+  };
+};
+
 export const login = async (email: string, password: string): Promise<User> => {
   try {
-    console.log('Starting login process...');
-    
     const usersRef = ref(db, 'users');
     const snapshot = await get(usersRef);
     
@@ -69,9 +102,7 @@ export const login = async (email: string, password: string): Promise<User> => {
     const [userId, userData] = userEntry as [string, FirebaseUser];
     return {
       id: userId,
-      email: userData.email,
-      password: userData.password,
-      clubs: userData.clubs || {}
+      ...userData
     };
     
   } catch (error) {
@@ -84,14 +115,6 @@ export const login = async (email: string, password: string): Promise<User> => {
 };
 
 export const checkAuth = async (): Promise<boolean> => {
-  const user = getUserFromStorage();
-  if (!user) return false;
-
-  try {
-    await login(user.email, user.password);
-    return true;
-  } catch {
-    clearUserFromStorage();
-    return false;
-  }
+  const user = await getCurrentUser();
+  return !!user;
 }; 
