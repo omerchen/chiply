@@ -1,15 +1,25 @@
-import React, { useState } from "react";
-import { Container, Paper, Typography } from "@mui/material";
+import React from "react";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { Container, Paper, Typography, Button } from "@mui/material";
 import PlayerList from "./components/PlayerList";
 import BuyinForm from "./components/BuyinForm";
 import CashoutForm from "./components/CashoutForm";
 import GameSummary from "./components/GameSummary";
 import TransactionList from "./components/TransactionList";
-import { Player } from "./types/types";
+import Login from "./pages/Login";
+import ProtectedRoute from "./components/ProtectedRoute";
+import { clearUserFromStorage } from "./services/auth";
+import { useNavigate } from "react-router-dom";
 import "./styles/main.scss";
 
-function App() {
-  const [players, setPlayers] = useState<Player[]>([]);
+function Home() {
+  const navigate = useNavigate();
+  const [players, setPlayers] = React.useState<Player[]>([]);
+
+  const handleLogout = () => {
+    clearUserFromStorage();
+    navigate('/login');
+  };
 
   const addPlayer = (name: string) => {
     setPlayers([
@@ -157,7 +167,35 @@ function App() {
       <Paper elevation={3} className="section">
         <TransactionList players={players} />
       </Paper>
+
+      <Button
+        variant="outlined"
+        color="secondary"
+        onClick={handleLogout}
+        fullWidth
+        sx={{ mt: 2 }}
+      >
+        Logout
+      </Button>
     </Container>
+  );
+}
+
+function App() {
+  return (
+    <Router>
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route
+          path="/"
+          element={
+            <ProtectedRoute>
+              <Home />
+            </ProtectedRoute>
+          }
+        />
+      </Routes>
+    </Router>
   );
 }
 
