@@ -74,7 +74,13 @@ function App() {
     );
   };
 
-  const editBuyin = (playerId: string, buyinId: string, amount: number, timestamp: number, isPayBox: boolean) => {
+  const editBuyin = (
+    playerId: string,
+    buyinId: string,
+    amount: number,
+    timestamp: number,
+    isPayBox: boolean
+  ) => {
     setPlayers(
       players.map((player) => {
         if (player.id === playerId) {
@@ -115,7 +121,7 @@ function App() {
   return (
     <Container maxWidth="md" className="app-container">
       <Typography variant="h3" component="h1" gutterBottom>
-        Poker Session Manager
+        Chiply
       </Typography>
 
       <Paper elevation={3} className="section">
@@ -140,8 +146,8 @@ function App() {
       </Paper>
 
       <Paper elevation={3} className="section">
-        <CashoutForm 
-          players={players} 
+        <CashoutForm
+          players={players}
           onCashout={setCashout}
           onResetPlayerCashout={resetPlayerCashout}
           onResetAllCashouts={resetAllCashouts}
