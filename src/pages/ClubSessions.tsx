@@ -34,30 +34,50 @@ interface SessionDetails {
     };
   };
   status: string;
-  players?: Player[];
+  data: {
+    buyins: {
+      [key: string]: {
+        playerId: string;
+        time: number;
+        amount: number;
+        isPaybox: boolean;
+      };
+    };
+    cashouts: {
+      [key: string]: {
+        playerId: string;
+        time: number;
+        cashout: number;
+      };
+    };
+  };
 }
 
 function calculateSessionDuration(session: SessionDetails): string | null {
   if (!session?.data?.buyins || !session?.data?.cashouts) return null;
 
   // Find first buyin time
-  const buyinTimes = Object.values(session.data.buyins).map(buyin => buyin.time);
+  const buyinTimes = Object.values(session.data.buyins).map(
+    (buyin) => buyin.time
+  );
   if (buyinTimes.length === 0) return null;
   const firstBuyinTime = Math.min(...buyinTimes);
 
   // Find last cashout time
-  const cashoutTimes = Object.values(session.data.cashouts).map(cashout => cashout.time);
+  const cashoutTimes = Object.values(session.data.cashouts).map(
+    (cashout) => cashout.time
+  );
   if (cashoutTimes.length === 0) return null;
   const lastCashoutTime = Math.max(...cashoutTimes);
 
   // Calculate duration in milliseconds
   const durationMs = lastCashoutTime - firstBuyinTime;
-  
+
   // Convert to hours and minutes
   const hours = Math.floor(durationMs / (1000 * 60 * 60));
   const minutes = Math.floor((durationMs % (1000 * 60 * 60)) / (1000 * 60));
 
-  return `${hours} hours${minutes > 0 ? ` and ${minutes} minutes` : ''}`;
+  return `${hours} hours${minutes > 0 ? ` and ${minutes} minutes` : ""}`;
 }
 
 function ClubSessions() {
@@ -201,13 +221,15 @@ function ClubSessions() {
                         ` (${session.details.stakes.ante} ante)`}
                     </TableCell>
                     <TableCell>
-                      {session.status === "close" && 
-                       calculateSessionDuration(session)}
+                      {session.status === "close" &&
+                        calculateSessionDuration(session)}
                     </TableCell>
                     <TableCell>
                       <Chip
                         label={session.status.toUpperCase()}
-                        color={session.status === "open" ? "success" : "default"}
+                        color={
+                          session.status === "open" ? "success" : "default"
+                        }
                         size="small"
                       />
                     </TableCell>
