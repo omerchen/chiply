@@ -26,7 +26,7 @@ import { formatMoney } from "../../../utils/formatters";
 interface CashoutFormProps {
   players: Player[];
   session?: SessionDetails;
-  onCashout: (playerId: string, amount: number) => void;
+  onCashout: (playerId: string, amount: number, stackValue: number) => void;
   onResetPlayerCashout: (playerId: string) => void;
   onResetAllCashouts: () => void;
   isSessionClosed?: boolean;
@@ -63,10 +63,10 @@ function CashoutForm({
     if (isMiscalculation) {
       const stackValueNum = parseFloat(stackValue);
       if (isNaN(stackValueNum)) return;
-      onCashout(selectedPlayerId, cashoutAmount);
+      onCashout(selectedPlayerId, cashoutAmount, stackValueNum);
     } else {
       // If not miscalculation, use the same value for both stack and cashout
-      onCashout(selectedPlayerId, cashoutAmount);
+      onCashout(selectedPlayerId, cashoutAmount, cashoutAmount);
     }
 
     setSelectedPlayerId("");
@@ -83,8 +83,7 @@ function CashoutForm({
   const handleConfirmResetPlayer = () => {
     if (!playerToReset) return;
     onResetPlayerCashout(playerToReset.id);
-    setResetDialogOpen(false);
-    setPlayerToReset(null);
+    handleCloseResetDialog();
   };
 
   const handleResetAllCashouts = () => {
@@ -107,6 +106,44 @@ function CashoutForm({
     setConfirmationDeleteAll("");
   };
 
+  const renderPlayerCashoutStatus = (player: Player) => {
+    const totalBuyins = player.buyins.reduce(
+      (sum, buyin) => sum + buyin.amount,
+      0
+    );
+    if (!session) return `Buyins: ₪${formatMoney(totalBuyins)}`;
+
+    const cashoutData = Object.values(session.data.cashouts || {}).find(
+      (cashout) => cashout.playerId === player.id
+    );
+
+    if (!cashoutData) {
+      return `Buyins: ₪${formatMoney(totalBuyins)}`;
+    }
+
+    const { cashout, stackValue } = cashoutData;
+    const profitLoss = cashout - totalBuyins;
+    const profitLossDisplay = `₪${formatMoney(Math.abs(profitLoss))}`;
+
+    // Convert to numbers and compare with a small epsilon to handle floating point precision
+    const cashoutNum = Number(cashout);
+    const stackValueNum = Number(stackValue);
+    const epsilon = 0.0001; // Small number to handle floating point comparison
+    const isDifferent = Math.abs(cashoutNum - stackValueNum) > epsilon;
+
+    // If stackValue is different from cashout, show it in parentheses
+    const cashoutDisplay = isDifferent
+      ? `₪${formatMoney(cashout)} (₪${formatMoney(stackValue)})`
+      : `₪${formatMoney(cashout)}`;
+
+    return `Buyins: ₪${formatMoney(
+      totalBuyins
+    )} | Cashout: ${cashoutDisplay} | ${
+      profitLoss >= 0 ? "Profit" : "Loss"
+    }: ${profitLossDisplay}`;
+  };
+
+  // Get players who have at least one buyin
   const playersWithBuyins = players.filter(
     (player) => player.buyins.length > 0
   );
@@ -114,16 +151,19 @@ function CashoutForm({
   return (
     <div>
       <form onSubmit={handleSubmit} className="form-row">
-        <Stack 
-          direction={{ xs: 'column', sm: 'row' }} 
-          spacing={{ xs: 1.5, sm: 2 }} 
-          sx={{ 
+        <Stack
+          direction={{ xs: "column", sm: "row" }}
+          spacing={{ xs: 1.5, sm: 2 }}
+          sx={{
             mb: 3,
-            width: '100%',
-            px: { xs: 0.5, sm: 0 }
+            width: "100%",
+            px: { xs: 0.5, sm: 0 },
           }}
         >
-          <FormControl sx={{ minWidth: { sm: 200 }, width: { xs: '100%', sm: 'auto' } }} size="small">
+          <FormControl
+            sx={{ minWidth: { sm: 200 }, width: { xs: "100%", sm: "auto" } }}
+            size="small"
+          >
             <InputLabel>Player</InputLabel>
             <Select
               value={selectedPlayerId}
@@ -131,10 +171,11 @@ function CashoutForm({
               label="Player"
               disabled={isSessionClosed}
             >
-              {players
+              {playersWithBuyins
                 .filter((player) => {
-                  const playerCashout = Object.values(session?.data?.cashouts || {})
-                    .find((cashout) => cashout.playerId === player.id);
+                  const playerCashout = Object.values(
+                    session?.data?.cashouts || {}
+                  ).find((cashout) => cashout.playerId === player.id);
                   return !playerCashout;
                 })
                 .map((player) => (
@@ -153,7 +194,7 @@ function CashoutForm({
             size="small"
             inputProps={{ step: "0.5" }}
             disabled={isSessionClosed}
-            sx={{ width: { xs: '100%', sm: 'auto' } }}
+            sx={{ width: { xs: "100%", sm: "auto" } }}
           />
 
           {isMiscalculation && (
@@ -165,7 +206,7 @@ function CashoutForm({
               size="small"
               inputProps={{ step: "0.5" }}
               disabled={isSessionClosed}
-              sx={{ width: { xs: '100%', sm: 'auto' } }}
+              sx={{ width: { xs: "100%", sm: "auto" } }}
             />
           )}
 
@@ -178,9 +219,9 @@ function CashoutForm({
               />
             }
             label="Miscalculation"
-            sx={{ 
+            sx={{
               mx: { xs: 0, sm: 1 },
-              width: { xs: '100%', sm: 'auto' }
+              width: { xs: "100%", sm: "auto" },
             }}
           />
 
@@ -190,9 +231,9 @@ function CashoutForm({
             disabled={!selectedPlayerId || !amount || isSessionClosed}
             fullWidth
             sx={{
-              bgcolor: '#673ab7',
-              '&:hover': { bgcolor: '#563098' },
-              width: { xs: '100%', sm: 'auto' }
+              bgcolor: "#673ab7",
+              "&:hover": { bgcolor: "#563098" },
+              width: { xs: "100%", sm: "auto" },
             }}
           >
             Add Cashout
@@ -200,67 +241,60 @@ function CashoutForm({
         </Stack>
       </form>
 
-      <List sx={{ 
-        width: '100%',
-        mx: { xs: -1.5, sm: 0 },
-        px: { xs: 1.5, sm: 0 },
-        '& .MuiListItem-root': {
-          flexDirection: { xs: 'column', sm: 'row' },
-          alignItems: { xs: 'stretch', sm: 'center' },
-          gap: { xs: 1, sm: 0 },
-          py: { xs: 2, sm: 1 },
-          px: { xs: 0, sm: 1 }
-        },
-        '& .MuiListItemText-root': {
-          my: { xs: 0, sm: 1 }
-        }
-      }}>
-        {players.map((player) => {
-          const totalBuyins = player.buyins.reduce(
-            (sum, buyin) => sum + buyin.amount,
-            0
-          );
+      <List
+        sx={{
+          width: "100%",
+          mx: { xs: -1.5, sm: 0 },
+          px: { xs: 1.5, sm: 0 },
+          "& .MuiListItem-root": {
+            flexDirection: { xs: "column", sm: "row" },
+            alignItems: { xs: "stretch", sm: "center" },
+            gap: { xs: 1, sm: 0 },
+            py: { xs: 2, sm: 1 },
+            px: { xs: 0, sm: 1 },
+          },
+          "& .MuiListItemText-root": {
+            my: { xs: 0, sm: 1 },
+          },
+        }}
+      >
+        {playersWithBuyins.map((player) => {
           const playerCashout = Object.values(
             session?.data?.cashouts || {}
           ).find((cashout) => cashout.playerId === player.id);
-          const profit = playerCashout
-            ? playerCashout.cashout - totalBuyins
-            : null;
 
           return (
             <ListItem key={player.id}>
               <ListItemText
                 primary={
-                  <Typography variant="subtitle1" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>
+                  <Typography
+                    variant="subtitle1"
+                    sx={{ fontSize: { xs: "0.875rem", sm: "1rem" } }}
+                  >
                     {player.name}
                   </Typography>
                 }
                 secondary={
-                  <Typography variant="body2" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
-                    {playerCashout
-                      ? `Buyins: ₪${formatMoney(totalBuyins)} | Cashout: ₪${formatMoney(
-                          playerCashout.cashout
-                        )}${
-                          profit !== null
-                            ? ` | ${profit >= 0 ? "Profit" : "Loss"}: ₪${formatMoney(
-                                Math.abs(profit)
-                              )}`
-                            : ""
-                        }`
-                      : `Buyins: ₪${formatMoney(totalBuyins)} | Not cashed out`}
+                  <Typography
+                    variant="body2"
+                    sx={{ fontSize: { xs: "0.75rem", sm: "0.875rem" } }}
+                  >
+                    {renderPlayerCashoutStatus(player)}
                   </Typography>
                 }
               />
               {playerCashout && (
                 <Button
                   size="small"
-                  onClick={() => handleResetPlayerCashout(player.id, player.name)}
+                  onClick={() =>
+                    handleResetPlayerCashout(player.id, player.name)
+                  }
                   variant="contained"
                   disableElevation
                   disabled={isSessionClosed}
                   sx={{
                     ml: { xs: 0, sm: 1 },
-                    width: { xs: '100%', sm: 'auto' },
+                    width: { xs: "100%", sm: "auto" },
                     textTransform: "none",
                     backgroundColor: "rgb(211, 47, 47) !important",
                     "&:hover": {
@@ -276,27 +310,37 @@ function CashoutForm({
         })}
       </List>
 
-      <Box sx={{ 
-        mt: 2,
-        px: { xs: 0.5, sm: 0 }
-      }}>
-        <Button
-          onClick={handleResetAllCashouts}
-          variant="contained"
-          disableElevation
-          disabled={isSessionClosed}
-          fullWidth
-          sx={{
-            width: { xs: '100%', sm: 'auto' },
-            textTransform: "none",
-            backgroundColor: "rgb(211, 47, 47) !important",
-            "&:hover": {
-              backgroundColor: "rgb(154, 0, 7) !important",
-            },
-          }}
-        >
-          Reset All Cashouts
-        </Button>
+      <Box
+        sx={{
+          mt: 2,
+          px: { xs: 0.5, sm: 0 },
+        }}
+      >
+        {playersWithBuyins.some((player) => {
+          const playerCashout = Object.values(
+            session?.data?.cashouts || {}
+          ).find((cashout) => cashout.playerId === player.id);
+          return playerCashout;
+        }) &&
+          !isSessionClosed && (
+            <Button
+              onClick={handleResetAllCashouts}
+              variant="contained"
+              disableElevation
+              disabled={isSessionClosed}
+              fullWidth
+              sx={{
+                width: { xs: "100%", sm: "auto" },
+                textTransform: "none",
+                backgroundColor: "rgb(211, 47, 47) !important",
+                "&:hover": {
+                  backgroundColor: "rgb(154, 0, 7) !important",
+                },
+              }}
+            >
+              Reset All Cashouts
+            </Button>
+          )}
       </Box>
 
       <Dialog open={resetDialogOpen} onClose={handleCloseResetDialog}>

@@ -74,11 +74,13 @@ function BuyinForm({ players, onBuyin, onRemoveBuyin, onEditBuyin, isSessionClos
   const [selectedPlayerId, setSelectedPlayerId] = useState("");
   const [amount, setAmount] = useState("");
   const [isPayBox, setIsPayBox] = useState(false);
-  const [order, setOrder] = useState<Order>('desc');
-  const [orderBy, setOrderBy] = useState<keyof BuyinData>('timestamp');
-  const [selectedPlayerFilter, setSelectedPlayerFilter] = useState<string>('all');
-  const [payboxFilter, setPayboxFilter] = useState<'all' | 'paybox' | 'regular'>('all');
-  
+  const [order, setOrder] = useState<'asc' | 'desc'>('desc');
+  const [orderBy, setOrderBy] = useState<'timestamp'>('timestamp');
+  const [playerFilterAnchor, setPlayerFilterAnchor] = useState<null | HTMLElement>(null);
+  const [typeFilterAnchor, setTypeFilterAnchor] = useState<null | HTMLElement>(null);
+  const [selectedPlayerNames, setSelectedPlayerNames] = useState<string[]>([]);
+  const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
+
   // Edit dialog states
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingBuyin, setEditingBuyin] = useState<BuyinData | null>(null);
@@ -134,40 +136,41 @@ function BuyinForm({ players, onBuyin, onRemoveBuyin, onEditBuyin, isSessionClos
     }
   };
 
-  // Prepare data for the table
-  const buyinData: BuyinData[] = useMemo(() => {
-    return players.flatMap(player =>
-      player.buyins.map(buyin => ({
-        id: buyin.id,
-        playerId: player.id,
-        playerName: player.name,
-        amount: buyin.amount,
-        timestamp: buyin.timestamp,
-        isPayBox: buyin.isPayBox
-      }))
-    );
-  }, [players]);
+  // Convert buyins data to array and sort
+  const buyinsData: BuyinData[] = players.flatMap(player => 
+    player.buyins.map(buyin => ({
+      id: buyin.id,
+      playerId: player.id,
+      playerName: player.name,
+      amount: buyin.amount,
+      timestamp: buyin.timestamp,
+      isPayBox: buyin.isPayBox
+    }))
+  );
 
-  // Sorting function
-  const sortedData = useMemo(() => {
-    const comparator = (a: BuyinData, b: BuyinData) => {
-      if (orderBy === 'timestamp') {
-        return order === 'desc' 
-          ? b.timestamp - a.timestamp
-          : a.timestamp - b.timestamp;
-      }
-      return 0;
-    };
+  // Sort buyins by timestamp
+  const sortedData = [...buyinsData].sort((a, b) => {
+    if (orderBy === 'timestamp') {
+      return order === 'asc' ? a.timestamp - b.timestamp : b.timestamp - a.timestamp;
+    }
+    return 0;
+  });
 
-    return [...buyinData]
-      .sort(comparator)
-      .filter(buyin => 
-        (selectedPlayerFilter === 'all' || buyin.playerId === selectedPlayerFilter) &&
-        (payboxFilter === 'all' || 
-         (payboxFilter === 'paybox' && buyin.isPayBox) ||
-         (payboxFilter === 'regular' && !buyin.isPayBox))
-      );
-  }, [buyinData, order, orderBy, selectedPlayerFilter, payboxFilter]);
+  // Get unique player names for filter
+  const uniquePlayerNames = Array.from(new Set(buyinsData.map(buyin => buyin.playerName)));
+
+  // Get filtered data
+  const filteredData = sortedData.filter(buyin => {
+    if (selectedPlayerNames.length > 0 && !selectedPlayerNames.includes(buyin.playerName)) {
+      return false;
+    }
+    if (selectedTypes.length > 0) {
+      if (selectedTypes.includes('Regular') && !buyin.isPayBox) return true;
+      if (selectedTypes.includes('PayBox') && buyin.isPayBox) return true;
+      return false;
+    }
+    return true;
+  });
 
   const formatTimeAgo = (timestamp: number) => {
     const seconds = Math.floor((Date.now() - timestamp) / 1000);
@@ -185,8 +188,51 @@ function BuyinForm({ players, onBuyin, onRemoveBuyin, onEditBuyin, isSessionClos
     }
   };
 
-  const [playerFilterAnchor, setPlayerFilterAnchor] = useState<null | HTMLElement>(null);
-  const [typeFilterAnchor, setTypeFilterAnchor] = useState<null | HTMLElement>(null);
+  const handlePlayerFilterClick = (event: React.MouseEvent<HTMLElement>) => {
+    setPlayerFilterAnchor(event.currentTarget);
+  };
+
+  const handleTypeFilterClick = (event: React.MouseEvent<HTMLElement>) => {
+    setTypeFilterAnchor(event.currentTarget);
+  };
+
+  const handlePlayerFilterClose = () => {
+    setPlayerFilterAnchor(null);
+  };
+
+  const handleTypeFilterClose = () => {
+    setTypeFilterAnchor(null);
+  };
+
+  const handlePlayerFilterChange = (playerName: string) => {
+    setSelectedPlayerNames(prev => {
+      if (prev.includes(playerName)) {
+        return prev.filter(name => name !== playerName);
+      } else {
+        return [...prev, playerName];
+      }
+    });
+  };
+
+  const handleTypeFilterChange = (type: string) => {
+    setSelectedTypes(prev => {
+      if (prev.includes(type)) {
+        return prev.filter(t => t !== type);
+      } else {
+        return [...prev, type];
+      }
+    });
+  };
+
+  const clearPlayerFilter = () => {
+    setSelectedPlayerNames([]);
+    handlePlayerFilterClose();
+  };
+
+  const clearTypeFilter = () => {
+    setSelectedTypes([]);
+    handleTypeFilterClose();
+  };
 
   return (
     <div>
@@ -303,7 +349,7 @@ function BuyinForm({ players, onBuyin, onRemoveBuyin, onEditBuyin, isSessionClos
             </TableRow>
           </TableHead>
           <TableBody>
-            {sortedData.map((buyin) => (
+            {filteredData.map((buyin) => (
               <TableRow key={buyin.id}>
                 <TableCell>{formatTimeAgo(buyin.timestamp)}</TableCell>
                 <TableCell>{buyin.playerName}</TableCell>
@@ -351,31 +397,23 @@ function BuyinForm({ players, onBuyin, onRemoveBuyin, onEditBuyin, isSessionClos
       <Menu
         anchorEl={playerFilterAnchor}
         open={Boolean(playerFilterAnchor)}
-        onClose={() => setPlayerFilterAnchor(null)}
+        onClose={handlePlayerFilterClose}
       >
-        <MenuItem 
-          onClick={() => {
-            setSelectedPlayerFilter('all');
-            setPlayerFilterAnchor(null);
-          }}
-        >
+        <MenuItem onClick={clearPlayerFilter}>
           <ListItemIcon>
-            <Checkbox checked={selectedPlayerFilter === 'all'} />
+            <Checkbox checked={selectedPlayerNames.length === 0} />
           </ListItemIcon>
           <ListItemText>All Players</ListItemText>
         </MenuItem>
-        {players.map(player => (
+        {uniquePlayerNames.map((playerName) => (
           <MenuItem 
-            key={player.id}
-            onClick={() => {
-              setSelectedPlayerFilter(player.id);
-              setPlayerFilterAnchor(null);
-            }}
+            key={playerName}
+            onClick={() => handlePlayerFilterChange(playerName)}
           >
             <ListItemIcon>
-              <Checkbox checked={selectedPlayerFilter === player.id} />
+              <Checkbox checked={selectedPlayerNames.includes(playerName)} />
             </ListItemIcon>
-            <ListItemText>{player.name}</ListItemText>
+            <ListItemText>{playerName}</ListItemText>
           </MenuItem>
         ))}
       </Menu>
@@ -384,38 +422,23 @@ function BuyinForm({ players, onBuyin, onRemoveBuyin, onEditBuyin, isSessionClos
       <Menu
         anchorEl={typeFilterAnchor}
         open={Boolean(typeFilterAnchor)}
-        onClose={() => setTypeFilterAnchor(null)}
+        onClose={handleTypeFilterClose}
       >
-        <MenuItem 
-          onClick={() => {
-            setPayboxFilter('all');
-            setTypeFilterAnchor(null);
-          }}
-        >
+        <MenuItem onClick={clearTypeFilter}>
           <ListItemIcon>
-            <Checkbox checked={payboxFilter === 'all'} />
+            <Checkbox checked={selectedTypes.length === 0} />
           </ListItemIcon>
           <ListItemText>All Types</ListItemText>
         </MenuItem>
-        <MenuItem 
-          onClick={() => {
-            setPayboxFilter('regular');
-            setTypeFilterAnchor(null);
-          }}
-        >
+        <MenuItem onClick={() => handleTypeFilterChange('Regular')}>
           <ListItemIcon>
-            <Checkbox checked={payboxFilter === 'regular'} />
+            <Checkbox checked={selectedTypes.includes('Regular')} />
           </ListItemIcon>
           <ListItemText>Regular</ListItemText>
         </MenuItem>
-        <MenuItem 
-          onClick={() => {
-            setPayboxFilter('paybox');
-            setTypeFilterAnchor(null);
-          }}
-        >
+        <MenuItem onClick={() => handleTypeFilterChange('PayBox')}>
           <ListItemIcon>
-            <Checkbox checked={payboxFilter === 'paybox'} />
+            <Checkbox checked={selectedTypes.includes('PayBox')} />
           </ListItemIcon>
           <ListItemText>PayBox</ListItemText>
         </MenuItem>

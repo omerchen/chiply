@@ -19,9 +19,10 @@ interface CashoutFormProps {
   onCashout: (playerId: string, amount: number) => void;
   onResetPlayerCashout: (playerId: string) => void;
   onResetAllCashouts: () => void;
+  isSessionClosed?: boolean;
 }
 
-function CashoutForm({ players, onCashout, onResetPlayerCashout, onResetAllCashouts }: CashoutFormProps) {
+function CashoutForm({ players, onCashout, onResetPlayerCashout, onResetAllCashouts, isSessionClosed }: CashoutFormProps) {
   const [selectedPlayer, setSelectedPlayer] = useState("");
   const [amount, setAmount] = useState("");
 
@@ -34,9 +35,11 @@ function CashoutForm({ players, onCashout, onResetPlayerCashout, onResetAllCasho
     }
   };
 
-  const playersWithBuyins = players.filter(
-    (player) => player.buyins.length > 0
-  );
+  // Get players who have at least one buyin
+  const playersWithBuyins = players.filter(player => player.buyins && player.buyins.length > 0);
+  
+  // From those players, get only the ones who haven't cashed out yet
+  const eligibleForCashout = playersWithBuyins.filter(player => player.cashout === null);
 
   return (
     <div>
@@ -52,14 +55,13 @@ function CashoutForm({ players, onCashout, onResetPlayerCashout, onResetAllCasho
               value={selectedPlayer}
               onChange={(e) => setSelectedPlayer(e.target.value)}
               label="Player"
+              disabled={isSessionClosed}
             >
-              {playersWithBuyins
-                .filter((player) => player.cashout === null)
-                .map((player) => (
-                  <MenuItem key={player.id} value={player.id}>
-                    {player.name}
-                  </MenuItem>
-                ))}
+              {eligibleForCashout.map((player) => (
+                <MenuItem key={player.id} value={player.id}>
+                  {player.name}
+                </MenuItem>
+              ))}
             </Select>
           </FormControl>
 
@@ -72,12 +74,13 @@ function CashoutForm({ players, onCashout, onResetPlayerCashout, onResetAllCasho
             size="small"
             fullWidth
             inputProps={{ min: "0" }}
+            disabled={isSessionClosed}
           />
 
           <Button
             type="submit"
             variant="contained"
-            disabled={!selectedPlayer || !amount}
+            disabled={!selectedPlayer || !amount || isSessionClosed}
           >
             Record Cashout
           </Button>
@@ -107,7 +110,7 @@ function CashoutForm({ players, onCashout, onResetPlayerCashout, onResetAllCasho
                     : `Buyins: ${formatMoney(totalBuyins)} | Not cashed out`
                 }
               />
-              {player.cashout !== null && (
+              {player.cashout !== null && !isSessionClosed && (
                 <Button
                   size="small"
                   onClick={() => onResetPlayerCashout(player.id)}
@@ -121,7 +124,7 @@ function CashoutForm({ players, onCashout, onResetPlayerCashout, onResetAllCasho
         })}
       </List>
       
-      {playersWithBuyins.some(player => player.cashout !== null) && (
+      {playersWithBuyins.some(player => player.cashout !== null) && !isSessionClosed && (
         <Button
           variant="outlined"
           color="secondary"

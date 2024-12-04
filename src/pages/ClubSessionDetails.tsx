@@ -374,19 +374,6 @@ function ClubSessionDetails() {
       // Delete the buyin
       await updateData('/', updates);
       
-      // Update local state only after successful DB update
-      setSession(prev => {
-        if (!prev) return prev;
-        const { [buyinToDelete.buyinId]: _, ...remainingBuyins } = prev.data.buyins;
-        return {
-          ...prev,
-          data: {
-            ...prev.data,
-            buyins: remainingBuyins
-          }
-        };
-      });
-
       setDeleteBuyinDialogOpen(false);
       setBuyinToDelete(null);
     } catch (error) {
@@ -432,14 +419,14 @@ function ClubSessionDetails() {
     }
   };
 
-  const setCashout = async (playerId: string, amount: number, stackValue?: number) => {
+  const setCashout = async (playerId: string, amount: number, stackValue: number) => {
     if (!session) return;
 
     try {
       const cashoutId = uuidv4();
       const cashoutData = {
         playerId,
-        stackValue: stackValue ?? amount,
+        stackValue: stackValue,
         cashout: amount,
         time: Date.now()
       };
@@ -475,7 +462,6 @@ function ClubSessionDetails() {
 
       if (cashoutEntry) {
         const [cashoutId] = cashoutEntry;
-        console.log('Resetting cashout for player:', playerId, 'cashoutId:', cashoutId);
         
         // Create an update object with null value
         const updates = {
@@ -484,19 +470,6 @@ function ClubSessionDetails() {
 
         // Delete the specific cashout from the database
         await updateData('/', updates);
-        
-        // Update local state only after successful DB update
-        setSession(prev => {
-          if (!prev) return prev;
-          const { [cashoutId]: _, ...remainingCashouts } = prev.data.cashouts;
-          return {
-            ...prev,
-            data: {
-              ...prev.data,
-              cashouts: remainingCashouts
-            }
-          };
-        });
       }
     } catch (error) {
       console.error('Error resetting player cashout:', error);
@@ -515,18 +488,6 @@ function ClubSessionDetails() {
 
       // Update all cashouts to null in one batch
       await updateData('/', updates);
-      
-      // Update local state only after successful DB update
-      setSession(prev => {
-        if (!prev) return prev;
-        return {
-          ...prev,
-          data: {
-            ...prev.data,
-            cashouts: {}
-          }
-        };
-      });
     } catch (error) {
       console.error('Error resetting all cashouts:', error);
     }
@@ -692,7 +653,7 @@ function ClubSessionDetails() {
   };
 
   const handleDeleteSession = async () => {
-    if (!session || !clubId || !sessionId) return;
+    if (!session) return;
 
     try {
       await deleteData(`sessions/${sessionId}`);
@@ -701,6 +662,14 @@ function ClubSessionDetails() {
       console.error('Error deleting session:', error);
     }
   };
+
+  const getSessionName = () => {
+    if (!session) return "";
+    const stakes = session.details.stakes;
+    return `${stakes.smallBlind}/${stakes.bigBlind}${stakes.ante ? ` (${stakes.ante})` : ""}`;
+  };
+
+  const hasAnyBuyins = Object.keys(session?.data?.buyins || {}).length > 0;
 
   if (loading) {
     return (
@@ -725,10 +694,12 @@ function ClubSessionDetails() {
   const moneyInPlay = Object.values(session?.data?.buyins || {}).reduce((sum, buyin) => sum + buyin.amount, 0) -
     Object.values(session?.data?.cashouts || {}).reduce((sum, cashout) => sum + cashout.cashout, 0);
 
-  const allPlayersCashedOut = players.every(player => 
-    Object.values(session?.data?.cashouts || {})
-      .some(cashout => cashout.playerId === player.id && cashout.cashout !== null)
-  );
+  const allPlayersCashedOut = players
+    .filter(player => player.buyins.length > 0) // Only consider players with buyins
+    .every(player => 
+      Object.values(session?.data?.cashouts || {})
+        .some(cashout => cashout.playerId === player.id && cashout.cashout !== null)
+    );
 
   return (
     <Container 
@@ -741,111 +712,95 @@ function ClubSessionDetails() {
       }}
     >
       <Box sx={{ px: { xs: 1, sm: 0 } }}>
-        <ClubBreadcrumbs 
-          clubId={clubId!} 
+        <ClubBreadcrumbs
+          clubId={clubId!}
           clubName={clubName}
           currentPage="Session Details"
-          parentPage={{
-            name: "Sessions",
+          parentPages={[{
+            name: "All Sessions",
             path: "sessions"
-          }}
+          }]}
         />
       </Box>
-      <Paper 
-        elevation={3} 
-        sx={{ 
-          p: { xs: 1.5, sm: 2, md: 3 },
-          borderRadius: { xs: 0, sm: 2 },
-          '& .MuiTableContainer-root': {
-            margin: { xs: -1.5, sm: 0 },
-            width: { xs: 'calc(100% + 24px)', sm: '100%' }
-          }
-        }}
-      >
-        <Box sx={{ 
-          display: 'flex', 
-          flexDirection: { xs: 'column', sm: 'row' },
-          justifyContent: 'space-between', 
-          alignItems: { xs: 'stretch', sm: 'flex-start' },
-          gap: { xs: 2, sm: 0 },
-          mb: 2 
-        }}>
-          <div>
-            <Stack 
-              direction="row" 
-              spacing={1} 
-              alignItems="center" 
-              sx={{ mb: { xs: 2, sm: 3 } }}
-            >
-              <EventIcon sx={{ color: '#673ab7' }} />
-              <Typography variant="h5">Session Details</Typography>
-            </Stack>
-            <Typography color="text.secondary" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>
-              Started: {new Date(session.details.startTime).toLocaleString()}
-            </Typography>
-            <Typography color="text.secondary" gutterBottom sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>
-              Stakes: {session.details.stakes.smallBlind}/{session.details.stakes.bigBlind}
-              {session.details.stakes.ante && ` (${session.details.stakes.ante} ante)`}
-            </Typography>
-          </div>
-          {players.length > 0 ? (
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-              <Button
-                variant={session.status === "open" ? "contained" : "outlined"}
-                onClick={toggleSessionStatus}
-                disabled={session.status === "open" && moneyInPlay !== 0}
-                sx={{
-                  width: { xs: '100%', sm: 'auto' },
-                  bgcolor: session.status === "open" ? 'error.main' : 'transparent',
-                  color: session.status === "open" ? 'white' : 'success.main',
-                  borderColor: session.status === "open" ? undefined : 'success.main',
-                  '&:hover': { 
-                    bgcolor: session.status === "open" ? 'error.dark' : 'success.light',
-                    borderColor: session.status === "open" ? undefined : 'success.main',
-                  },
-                  '&.Mui-disabled': {
-                    bgcolor: session.status === "open" ? 'rgba(211, 47, 47, 0.5)' : undefined
-                  }
-                }}
-              >
-                {session.status === "open" ? "Close Session" : "Reopen Session"}
-              </Button>
-              {session.status === "close" && (
-                <Button
-                  variant="contained"
-                  onClick={() => navigate(`/clubs/${clubId}/sessions/${sessionId}/summary`)}
-                  sx={{
-                    width: { xs: '100%', sm: 'auto' },
-                    bgcolor: '#673ab7',
-                    '&:hover': { bgcolor: '#563098' }
-                  }}
-                >
-                  View Summary
-                </Button>
-              )}
-            </Stack>
-          ) : (
-            <Button
-              variant="contained"
-              onClick={handleDeleteSession}
-              sx={{
-                width: { xs: '100%', sm: 'auto' },
-                bgcolor: 'error.main',
-                color: 'white',
-                '&:hover': { 
-                  bgcolor: 'error.dark'
-                }
-              }}
-            >
-              Delete Session
-            </Button>
-          )}
-        </Box>
 
-        <Divider sx={{ my: { xs: 2, sm: 3 } }} />
-
-        <Grid container spacing={{ xs: 4, sm: 5 }}>
+      <Paper elevation={3} sx={{ p: { xs: 2, sm: 3 }, borderRadius: 2 }}>
+        <Grid container spacing={{ xs: 3, sm: 4 }}>
           <Grid item xs={12}>
+            <Stack 
+              direction={{ xs: 'column', sm: 'row' }} 
+              spacing={2}
+              alignItems={{ xs: 'stretch', sm: 'center' }}
+              justifyContent="space-between"
+            >
+              <Stack spacing={1}>
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <EventIcon sx={{ color: '#673ab7' }} />
+                  <Typography variant="h5">Session Details</Typography>
+                </Stack>
+                <Typography color="text.secondary" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>
+                  Started: {new Date(session.details.startTime).toLocaleString()}
+                </Typography>
+                <Typography color="text.secondary" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>
+                  Stakes: {getSessionName()}
+                </Typography>
+              </Stack>
+
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                {!hasAnyBuyins ? (
+                  <Button
+                    variant="contained"
+                    onClick={handleDeleteSession}
+                    sx={{
+                      width: { xs: '100%', sm: 'auto' },
+                      bgcolor: 'error.main',
+                      '&:hover': { bgcolor: 'error.dark' }
+                    }}
+                  >
+                    Delete Session
+                  </Button>
+                ) : (
+                  <>
+                    <Button
+                      variant={session.status === "open" ? "contained" : "outlined"}
+                      onClick={toggleSessionStatus}
+                      disabled={session.status === "open" && (!allPlayersCashedOut || moneyInPlay !== 0)}
+                      sx={{
+                        width: { xs: '100%', sm: 'auto' },
+                        bgcolor: session.status === "open" ? 'error.main' : 'transparent',
+                        color: session.status === "open" ? 'white' : 'success.main',
+                        borderColor: session.status === "open" ? undefined : 'success.main',
+                        '&:hover': { 
+                          bgcolor: session.status === "open" ? 'error.dark' : 'success.light',
+                          borderColor: session.status === "open" ? undefined : 'success.main',
+                        },
+                        '&.Mui-disabled': {
+                          bgcolor: session.status === "open" ? 'rgba(211, 47, 47, 0.5)' : undefined
+                        }
+                      }}
+                    >
+                      {session.status === "open" ? "Close Session" : "Reopen Session"}
+                    </Button>
+                    {session.status === "close" && (
+                      <Button
+                        variant="contained"
+                        onClick={() => navigate(`/clubs/${clubId}/sessions/${sessionId}/summary`)}
+                        sx={{
+                          width: { xs: '100%', sm: 'auto' },
+                          bgcolor: '#673ab7',
+                          '&:hover': { bgcolor: '#563098' }
+                        }}
+                      >
+                        View Summary
+                      </Button>
+                    )}
+                  </>
+                )}
+              </Stack>
+            </Stack>
+          </Grid>
+
+          <Grid item xs={12}>
+            <Divider sx={{ mb: { xs: 4, sm: 5 }, bgcolor: 'grey.200' }} />
             <Stack 
               direction="row" 
               spacing={1} 
@@ -1103,7 +1058,7 @@ function ClubSessionDetails() {
         <DialogTitle>Confirm Remove Buyin</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            Are you sure you want to remove the buyin of ₪{buyinToDelete?.amount} from {buyinToDelete?.playerName}? 
+            Are you sure you want to remove {buyinToDelete?.playerName}'s buyin of ₪{buyinToDelete?.amount}? 
             This action cannot be undone.
           </DialogContentText>
         </DialogContent>
@@ -1134,7 +1089,8 @@ function ClubSessionDetails() {
         <DialogTitle>Confirm Reopen Session</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            Are you sure you want to reopen this session? This will allow players to continue playing and making transactions.
+            Are you sure you want to reopen this session? 
+            This will allow players to add buyins and modify cashouts again.
           </DialogContentText>
         </DialogContent>
         <DialogActions>
@@ -1145,8 +1101,8 @@ function ClubSessionDetails() {
             onClick={handleConfirmReopen}
             variant="contained"
             sx={{
-              bgcolor: 'success.main',
-              '&:hover': { bgcolor: 'success.dark' }
+              bgcolor: '#673ab7',
+              '&:hover': { bgcolor: '#563098' }
             }}
           >
             Reopen Session
