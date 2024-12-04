@@ -18,6 +18,8 @@ import { v4 as uuidv4 } from 'uuid';
 import { readData, writeData } from '../services/database';
 import ClubBreadcrumbs from '../components/ClubBreadcrumbs';
 import { createTheme, ThemeProvider } from '@mui/material';
+import { auth } from '../config/firebase';
+import { getCurrentUser } from '../services/auth';
 
 interface SessionForm {
   startTime: dayjs.Dayjs | null;
@@ -32,6 +34,7 @@ function NewClubSession() {
   const [loading, setLoading] = useState(true);
   const [clubName, setClubName] = useState('');
   const [error, setError] = useState<{ [key: string]: string }>({});
+  const [userRole, setUserRole] = useState<string | null>(null);
 
   const theme = createTheme({
     palette: {
@@ -50,18 +53,38 @@ function NewClubSession() {
 
   useEffect(() => {
     const fetchData = async () => {
+      setLoading(true);
       try {
-        const clubData = await readData(`clubs/${clubId}`);
+        const [clubData, currentUser] = await Promise.all([
+          readData(`clubs/${clubId}`),
+          getCurrentUser()
+        ]);
+        
         setClubName(clubData.name || '');
+
+        if (!currentUser) {
+          navigate('/');
+          return;
+        }
+
+        // Check user's role in the club from user data
+        const userRole = currentUser.clubs[clubId!]?.role;
+        setUserRole(userRole);
+        
+        // Redirect if user is not an admin
+        if (userRole !== 'admin') {
+          navigate(`/clubs/${clubId}`);
+        }
       } catch (error) {
         console.error('Error fetching club data:', error);
+        navigate(`/clubs/${clubId}`);
       } finally {
         setLoading(false);
       }
     };
 
     fetchData();
-  }, [clubId]);
+  }, [clubId, navigate]);
 
   const handleChange = (field: keyof SessionForm) => (event: React.ChangeEvent<HTMLInputElement>) => {
     setForm(prev => ({
@@ -131,6 +154,11 @@ function NewClubSession() {
         <CircularProgress />
       </Container>
     );
+  }
+
+  // Only render the main content if user is admin
+  if (userRole !== 'admin') {
+    return null;
   }
 
   return (

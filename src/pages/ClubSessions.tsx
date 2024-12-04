@@ -19,6 +19,7 @@ import AddIcon from "@mui/icons-material/Add";
 import { readData } from "../services/database";
 import ClubBreadcrumbs from "../components/ClubBreadcrumbs";
 import ActionButton from "../components/ActionButton";
+import { getCurrentUser } from "../services/auth";
 import { Player } from "../types/types";
 
 interface SessionDetails {
@@ -86,16 +87,22 @@ function ClubSessions() {
   const [loading, setLoading] = useState(true);
   const [clubName, setClubName] = useState("");
   const [sessions, setSessions] = useState<SessionDetails[]>([]);
+  const [userRole, setUserRole] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [clubData, sessionsData] = await Promise.all([
+        const [clubData, sessionsData, currentUser] = await Promise.all([
           readData(`clubs/${clubId}`),
           readData("sessions"),
+          getCurrentUser()
         ]);
 
         setClubName(clubData.name || "");
+        
+        if (currentUser) {
+          setUserRole(currentUser.clubs[clubId!]?.role);
+        }
 
         // Filter sessions for this club and add IDs
         const clubSessions = Object.entries(
@@ -241,13 +248,15 @@ function ClubSessions() {
         </Paper>
       )}
 
-      <Box sx={{ position: "fixed", bottom: 32, right: 32 }}>
-        <ActionButton
-          title="New Session"
-          onClick={() => navigate(`/clubs/${clubId}/newSession`)}
-          icon={<AddIcon />}
-        />
-      </Box>
+      {userRole === 'admin' && (
+        <Box sx={{ position: "fixed", bottom: 32, right: 32 }}>
+          <ActionButton
+            title="New Session"
+            onClick={() => navigate(`/clubs/${clubId}/newSession`)}
+            icon={<AddIcon />}
+          />
+        </Box>
+      )}
     </Container>
   );
 }

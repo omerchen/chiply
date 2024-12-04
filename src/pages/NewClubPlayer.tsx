@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Container,
@@ -16,6 +16,8 @@ import {
 import { v4 as uuidv4 } from 'uuid';
 import { readData, writeData } from '../services/database';
 import ClubBreadcrumbs from '../components/ClubBreadcrumbs';
+import { auth } from '../config/firebase';
+import { getCurrentUser } from '../services/auth';
 
 interface PlayerData {
   id: string;
@@ -36,18 +38,56 @@ function NewClubPlayer() {
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [clubName, setClubName] = useState('');
   const [error, setError] = useState('');
+  const [userRole, setUserRole] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  React.useEffect(() => {
-    const fetchClubName = async () => {
+  useEffect(() => {
+    const checkAccess = async () => {
+      setIsLoading(true);
       try {
-        const clubData = await readData(`clubs/${clubId}`);
+        const [clubData, currentUser] = await Promise.all([
+          readData(`clubs/${clubId}`),
+          getCurrentUser()
+        ]);
+        
         setClubName(clubData.name || '');
+        
+        if (!currentUser) {
+          navigate('/');
+          return;
+        }
+
+        // Check user's role in the club from user data
+        const userRole = currentUser.clubs[clubId!]?.role;
+        setUserRole(userRole);
+        
+        // Redirect if user is not an admin
+        if (userRole !== 'admin') {
+          navigate(`/clubs/${clubId}`);
+        }
       } catch (error) {
-        console.error('Error fetching club name:', error);
+        console.error('Error checking access:', error);
+        navigate(`/clubs/${clubId}`);
+      } finally {
+        setIsLoading(false);
       }
     };
-    fetchClubName();
-  }, [clubId]);
+
+    checkAccess();
+  }, [clubId, navigate]);
+
+  if (isLoading) {
+    return (
+      <Container sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
+        <CircularProgress />
+      </Container>
+    );
+  }
+
+  // Only render the main content if user is admin
+  if (userRole !== 'admin') {
+    return null;
+  }
 
   const handleSearch = async () => {
     if (!email.trim()) return;

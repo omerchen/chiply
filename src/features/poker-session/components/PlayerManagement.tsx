@@ -12,12 +12,11 @@ import { formatMoney } from "../../../utils/formatters";
 
 interface PlayerListProps {
   players: Player[];
-  onRemovePlayer: (id: string) => void;
-  onAddPlayer?: (name: string) => void;
+  onRemovePlayer?: (id: string) => void;
   isSessionClosed?: boolean;
 }
 
-function PlayerList({ players, onRemovePlayer, onAddPlayer, isSessionClosed }: PlayerListProps) {
+function PlayerList({ players, onRemovePlayer, isSessionClosed }: PlayerListProps) {
   return (
     <div>
       <List>
@@ -27,8 +26,8 @@ function PlayerList({ players, onRemovePlayer, onAddPlayer, isSessionClosed }: P
             secondaryAction={
               <IconButton
                 edge="end"
-                onClick={() => onRemovePlayer(player.id)}
-                disabled={player.buyins.length > 0 || isSessionClosed}
+                onClick={() => onRemovePlayer && onRemovePlayer(player.id)}
+                disabled={isSessionClosed || !onRemovePlayer}
               >
                 <DeleteIcon />
               </IconButton>

@@ -36,6 +36,7 @@ import TransactionList from '../features/poker-session/components/TransactionSum
 import { Player } from '../types/types';
 import { ref, onValue, off } from 'firebase/database';
 import { db } from '../config/firebase';
+import { getCurrentUser } from '../services/auth';
 
 interface SessionData {
   players: {
@@ -114,6 +115,7 @@ function ClubSessionDetails() {
     amount: number 
   } | null>(null);
   const [reopenDialogOpen, setReopenDialogOpen] = useState(false);
+  const [userRole, setUserRole] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -140,9 +142,17 @@ function ClubSessionDetails() {
           setSession(initializedSessionData);
         });
 
-        // Fetch club data (one-time)
-        const clubData = await readData(`clubs/${clubId}`);
+        // Fetch club data and user data
+        const [clubData, currentUser] = await Promise.all([
+          readData(`clubs/${clubId}`),
+          getCurrentUser()
+        ]);
+        
         setClubName(clubData.name || '');
+        
+        if (currentUser) {
+          setUserRole(currentUser.clubs[clubId!]?.role);
+        }
         
         // Fetch club players (one-time)
         const clubPlayerIds = clubData.players ? Object.keys(clubData.players) : [];
@@ -745,57 +755,60 @@ function ClubSessionDetails() {
                 </Typography>
               </Stack>
 
-              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-                {!hasAnyBuyins ? (
-                  <Button
-                    variant="contained"
-                    onClick={handleDeleteSession}
-                    sx={{
-                      width: { xs: '100%', sm: 'auto' },
-                      bgcolor: 'error.main',
-                      '&:hover': { bgcolor: 'error.dark' }
-                    }}
-                  >
-                    Delete Session
-                  </Button>
-                ) : (
-                  <>
+              {userRole === 'admin' && (
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                  {!hasAnyBuyins ? (
                     <Button
-                      variant={session.status === "open" ? "contained" : "outlined"}
-                      onClick={toggleSessionStatus}
-                      disabled={session.status === "open" && (!allPlayersCashedOut || moneyInPlay !== 0)}
+                      variant="contained"
+                      onClick={handleDeleteSession}
                       sx={{
                         width: { xs: '100%', sm: 'auto' },
-                        bgcolor: session.status === "open" ? 'error.main' : 'transparent',
-                        color: session.status === "open" ? 'white' : 'success.main',
-                        borderColor: session.status === "open" ? undefined : 'success.main',
-                        '&:hover': { 
-                          bgcolor: session.status === "open" ? 'error.dark' : 'success.light',
-                          borderColor: session.status === "open" ? undefined : 'success.main',
-                        },
-                        '&.Mui-disabled': {
-                          bgcolor: session.status === "open" ? 'rgba(211, 47, 47, 0.5)' : undefined
-                        }
+                        bgcolor: 'error.main',
+                        '&:hover': { bgcolor: 'error.dark' }
                       }}
                     >
-                      {session.status === "open" ? "Close Session" : "Reopen Session"}
+                      Delete Session
                     </Button>
-                    {session.status === "close" && (
+                  ) : (
+                    <>
                       <Button
-                        variant="contained"
-                        onClick={() => navigate(`/clubs/${clubId}/sessions/${sessionId}/summary`)}
+                        variant={session.status === "open" ? "contained" : "outlined"}
+                        onClick={toggleSessionStatus}
+                        disabled={session.status === "open" && (!allPlayersCashedOut || moneyInPlay !== 0)}
                         sx={{
                           width: { xs: '100%', sm: 'auto' },
-                          bgcolor: '#673ab7',
-                          '&:hover': { bgcolor: '#563098' }
+                          bgcolor: session.status === "open" ? 'error.main' : 'transparent',
+                          color: session.status === "open" ? 'white' : 'success.main',
+                          borderColor: session.status === "open" ? undefined : 'success.main',
+                          '&:hover': { 
+                            bgcolor: session.status === "open" ? 'error.dark' : 'success.light',
+                            borderColor: session.status === "open" ? undefined : 'success.main',
+                          },
+                          '&.Mui-disabled': {
+                            bgcolor: session.status === "open" ? 'rgba(211, 47, 47, 0.5)' : undefined
+                          }
                         }}
                       >
-                        View Summary
+                        {session.status === "open" ? "Close Session" : "Reopen Session"}
                       </Button>
-                    )}
-                  </>
-                )}
-              </Stack>
+                    </>
+                  )}
+                </Stack>
+              )}
+
+              {session.status === "close" && (
+                <Button
+                  variant="contained"
+                  onClick={() => navigate(`/clubs/${clubId}/sessions/${sessionId}/summary`)}
+                  sx={{
+                    width: { xs: '100%', sm: 'auto' },
+                    bgcolor: '#673ab7',
+                    '&:hover': { bgcolor: '#563098' }
+                  }}
+                >
+                  View Summary
+                </Button>
+              )}
             </Stack>
           </Grid>
 
@@ -810,46 +823,47 @@ function ClubSessionDetails() {
               <GroupIcon sx={{ color: '#673ab7' }} />
               <Typography variant="h5">Players</Typography>
             </Stack>
-            <Box sx={{ mb: { xs: 2, sm: 3 } }}>
-              <Grid container spacing={{ xs: 1, sm: 2 }} alignItems="center">
-                <Grid item xs={12} sm>
-                  <FormControl fullWidth size="small">
-                    <InputLabel>Add Player</InputLabel>
-                    <Select
-                      value={selectedPlayerId}
-                      onChange={(e) => setSelectedPlayerId(e.target.value)}
-                      label="Add Player"
-                      disabled={session.status === "close"}
+            {userRole === 'admin' && session.status === "open" && (
+              <Box sx={{ mb: { xs: 2, sm: 3 } }}>
+                <Grid container spacing={{ xs: 1, sm: 2 }} alignItems="center">
+                  <Grid item xs={12} sm>
+                    <FormControl fullWidth size="small">
+                      <InputLabel>Add Player</InputLabel>
+                      <Select
+                        value={selectedPlayerId}
+                        onChange={(e) => setSelectedPlayerId(e.target.value)}
+                        label="Add Player"
+                      >
+                        {availablePlayers.map((player) => (
+                          <MenuItem key={player.id} value={player.id}>
+                            {player.firstName} {player.lastName}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                  <Grid item xs={12} sm="auto">
+                    <Button
+                      variant="contained"
+                      onClick={addPlayer}
+                      disabled={!selectedPlayerId}
+                      fullWidth
+                      sx={{
+                        bgcolor: '#673ab7',
+                        '&:hover': { bgcolor: '#563098' },
+                        width: { xs: '100%', sm: 'auto' }
+                      }}
                     >
-                      {availablePlayers.map((player) => (
-                        <MenuItem key={player.id} value={player.id}>
-                          {player.firstName} {player.lastName}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
+                      Add Player
+                    </Button>
+                  </Grid>
                 </Grid>
-                <Grid item xs={12} sm="auto">
-                  <Button
-                    variant="contained"
-                    onClick={addPlayer}
-                    disabled={!selectedPlayerId || session.status === "close"}
-                    fullWidth
-                    sx={{
-                      bgcolor: '#673ab7',
-                      '&:hover': { bgcolor: '#563098' },
-                      width: { xs: '100%', sm: 'auto' }
-                    }}
-                  >
-                    Add Player
-                  </Button>
-                </Grid>
-              </Grid>
-            </Box>
+              </Box>
+            )}
 
             <PlayerList
               players={players}
-              onRemovePlayer={handleRemovePlayer}
+              onRemovePlayer={userRole === 'admin' ? handleRemovePlayer : undefined}
               isSessionClosed={session.status === "close"}
             />
           </Grid>
@@ -867,9 +881,9 @@ function ClubSessionDetails() {
             </Stack>
             <BuyinForm
               players={players}
-              onBuyin={addBuyin}
-              onRemoveBuyin={handleRemoveBuyin}
-              onEditBuyin={editBuyin}
+              onBuyin={userRole === 'admin' ? addBuyin : undefined}
+              onRemoveBuyin={userRole === 'admin' ? handleRemoveBuyin : undefined}
+              onEditBuyin={userRole === 'admin' ? editBuyin : undefined}
               isSessionClosed={session.status === "close"}
             />
           </Grid>
@@ -888,9 +902,9 @@ function ClubSessionDetails() {
             <CashoutForm
               players={players}
               session={session}
-              onCashout={setCashout}
-              onResetPlayerCashout={resetPlayerCashout}
-              onResetAllCashouts={resetAllCashouts}
+              onCashout={userRole === 'admin' ? setCashout : undefined}
+              onResetPlayerCashout={userRole === 'admin' ? resetPlayerCashout : undefined}
+              onResetAllCashouts={userRole === 'admin' ? resetAllCashouts : undefined}
               isSessionClosed={session.status === "close"}
             />
           </Grid>
@@ -964,151 +978,156 @@ function ClubSessionDetails() {
         </Grid>
       </Paper>
 
-      <Dialog
-        open={resetDialogOpen}
-        onClose={() => setResetDialogOpen(false)}
-      >
-        <DialogTitle>Confirm Reset Cashout</DialogTitle>
-        <DialogContent>
-          <DialogContentText>
-            Are you sure you want to reset the cashout for {playerToReset?.name}? This action cannot be undone.
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setResetDialogOpen(false)} color="inherit">
-            Cancel
-          </Button>
-          <Button 
-            onClick={handleConfirmResetPlayer} 
-            color="error"
-            variant="contained"
-            sx={{
-              bgcolor: 'error.main',
-              '&:hover': { bgcolor: 'error.dark' },
-            }}
+      {/* Only render dialogs if user is admin */}
+      {userRole === 'admin' && (
+        <>
+          <Dialog
+            open={resetDialogOpen}
+            onClose={() => setResetDialogOpen(false)}
           >
-            Reset Cashout
-          </Button>
-        </DialogActions>
-      </Dialog>
+            <DialogTitle>Confirm Reset Cashout</DialogTitle>
+            <DialogContent>
+              <DialogContentText>
+                Are you sure you want to reset the cashout for {playerToReset?.name}? This action cannot be undone.
+              </DialogContentText>
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={() => setResetDialogOpen(false)} color="inherit">
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleConfirmResetPlayer} 
+                color="error"
+                variant="contained"
+                sx={{
+                  bgcolor: 'error.main',
+                  '&:hover': { bgcolor: 'error.dark' },
+                }}
+              >
+                Reset Cashout
+              </Button>
+            </DialogActions>
+          </Dialog>
 
-      <Dialog
-        open={resetAllDialogOpen}
-        onClose={() => setResetAllDialogOpen(false)}
-      >
-        <DialogTitle>Confirm Reset All Cashouts</DialogTitle>
-        <DialogContent>
-          <DialogContentText>
-            Are you sure you want to reset all cashouts? This action cannot be undone.
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setResetAllDialogOpen(false)} color="inherit">
-            Cancel
-          </Button>
-          <Button 
-            onClick={handleConfirmResetAll} 
-            color="error"
-            variant="contained"
-            sx={{
-              bgcolor: 'error.main',
-              '&:hover': { bgcolor: 'error.dark' },
-            }}
+          <Dialog
+            open={resetAllDialogOpen}
+            onClose={() => setResetAllDialogOpen(false)}
           >
-            Reset All Cashouts
-          </Button>
-        </DialogActions>
-      </Dialog>
+            <DialogTitle>Confirm Reset All Cashouts</DialogTitle>
+            <DialogContent>
+              <DialogContentText>
+                Are you sure you want to reset all cashouts? This action cannot be undone.
+              </DialogContentText>
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={() => setResetAllDialogOpen(false)} color="inherit">
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleConfirmResetAll} 
+                color="error"
+                variant="contained"
+                sx={{
+                  bgcolor: 'error.main',
+                  '&:hover': { bgcolor: 'error.dark' },
+                }}
+              >
+                Reset All Cashouts
+              </Button>
+            </DialogActions>
+          </Dialog>
 
-      <Dialog
-        open={deletePlayerDialogOpen}
-        onClose={() => setDeletePlayerDialogOpen(false)}
-      >
-        <DialogTitle>Confirm Remove Player</DialogTitle>
-        <DialogContent>
-          <DialogContentText>
-            Are you sure you want to remove {playerToDelete?.name} from the session? 
-            This will also remove all their buyins and cashouts. This action cannot be undone.
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDeletePlayerDialogOpen(false)} color="inherit">
-            Cancel
-          </Button>
-          <Button 
-            onClick={handleConfirmDeletePlayer} 
-            color="error"
-            variant="contained"
-            sx={{
-              bgcolor: 'error.main',
-              '&:hover': {
-                bgcolor: 'error.dark',
-              },
-            }}
+          <Dialog
+            open={deletePlayerDialogOpen}
+            onClose={() => setDeletePlayerDialogOpen(false)}
           >
-            Remove Player
-          </Button>
-        </DialogActions>
-      </Dialog>
+            <DialogTitle>Confirm Remove Player</DialogTitle>
+            <DialogContent>
+              <DialogContentText>
+                Are you sure you want to remove {playerToDelete?.name} from the session? 
+                This will also remove all their buyins and cashouts. This action cannot be undone.
+              </DialogContentText>
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={() => setDeletePlayerDialogOpen(false)} color="inherit">
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleConfirmDeletePlayer} 
+                color="error"
+                variant="contained"
+                sx={{
+                  bgcolor: 'error.main',
+                  '&:hover': {
+                    bgcolor: 'error.dark',
+                  },
+                }}
+              >
+                Remove Player
+              </Button>
+            </DialogActions>
+          </Dialog>
 
-      <Dialog
-        open={deleteBuyinDialogOpen}
-        onClose={() => setDeleteBuyinDialogOpen(false)}
-      >
-        <DialogTitle>Confirm Remove Buyin</DialogTitle>
-        <DialogContent>
-          <DialogContentText>
-            Are you sure you want to remove {buyinToDelete?.playerName}'s buyin of ₪{buyinToDelete?.amount}? 
-            This action cannot be undone.
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDeleteBuyinDialogOpen(false)} color="inherit">
-            Cancel
-          </Button>
-          <Button 
-            onClick={handleConfirmDeleteBuyin} 
-            color="error"
-            variant="contained"
-            sx={{
-              bgcolor: 'error.main',
-              '&:hover': {
-                bgcolor: 'error.dark',
-              },
-            }}
+          <Dialog
+            open={deleteBuyinDialogOpen}
+            onClose={() => setDeleteBuyinDialogOpen(false)}
           >
-            Remove Buyin
-          </Button>
-        </DialogActions>
-      </Dialog>
+            <DialogTitle>Confirm Remove Buyin</DialogTitle>
+            <DialogContent>
+              <DialogContentText>
+                Are you sure you want to remove {buyinToDelete?.playerName}'s buyin of ₪{buyinToDelete?.amount}? 
+                This action cannot be undone.
+              </DialogContentText>
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={() => setDeleteBuyinDialogOpen(false)} color="inherit">
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleConfirmDeleteBuyin} 
+                color="error"
+                variant="contained"
+                sx={{
+                  bgcolor: 'error.main',
+                  '&:hover': {
+                    bgcolor: 'error.dark',
+                  },
+                }}
+              >
+                Remove Buyin
+              </Button>
+            </DialogActions>
+          </Dialog>
 
-      <Dialog
-        open={reopenDialogOpen}
-        onClose={() => setReopenDialogOpen(false)}
-      >
-        <DialogTitle>Confirm Reopen Session</DialogTitle>
-        <DialogContent>
-          <DialogContentText>
-            Are you sure you want to reopen this session? 
-            This will allow players to add buyins and modify cashouts again.
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setReopenDialogOpen(false)} color="inherit">
-            Cancel
-          </Button>
-          <Button 
-            onClick={handleConfirmReopen}
-            variant="contained"
-            sx={{
-              bgcolor: '#673ab7',
-              '&:hover': { bgcolor: '#563098' }
-            }}
+          <Dialog
+            open={reopenDialogOpen}
+            onClose={() => setReopenDialogOpen(false)}
           >
-            Reopen Session
-          </Button>
-        </DialogActions>
-      </Dialog>
+            <DialogTitle>Confirm Reopen Session</DialogTitle>
+            <DialogContent>
+              <DialogContentText>
+                Are you sure you want to reopen this session? 
+                This will allow players to add buyins and modify cashouts again.
+              </DialogContentText>
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={() => setReopenDialogOpen(false)} color="inherit">
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleConfirmReopen}
+                variant="contained"
+                sx={{
+                  bgcolor: '#673ab7',
+                  '&:hover': { bgcolor: '#563098' }
+                }}
+              >
+                Reopen Session
+              </Button>
+            </DialogActions>
+          </Dialog>
+        </>
+      )}
     </Container>
   );
 }

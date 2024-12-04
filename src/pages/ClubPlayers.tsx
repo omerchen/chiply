@@ -18,6 +18,7 @@ import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import { readData } from '../services/database';
 import ClubBreadcrumbs from '../components/ClubBreadcrumbs';
 import ActionButton from '../components/ActionButton';
+import { getCurrentUser } from '../services/auth';
 
 interface Player {
   id: string;
@@ -37,38 +38,36 @@ function ClubPlayers() {
   const [players, setPlayers] = useState<Player[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [clubName, setClubName] = useState<string>('');
+  const [userRole, setUserRole] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchPlayers = async () => {
+    const fetchData = async () => {
       try {
-        console.log('Fetching players for club:', clubId);
+        const [clubData, currentUser] = await Promise.all([
+          readData(`clubs/${clubId}`),
+          getCurrentUser()
+        ]);
         
-        // First get club's data
-        const clubData = await readData(`clubs/${clubId}`);
         setClubName(clubData.name || '');
-        console.log('Club data:', clubData);
+        
+        if (currentUser) {
+          setUserRole(currentUser.clubs[clubId!]?.role);
+        }
 
         if (!clubData?.players) {
-          console.log('No players found in club data');
           setPlayers([]);
           setLoading(false);
           return;
         }
 
-        // Get player IDs from the club's players object
+        // Rest of the existing player fetching logic...
         const playerIds = Object.keys(clubData.players);
-        console.log('Player IDs:', playerIds);
-
-        // Then fetch each player's details
         const playersData = await readData('players');
-        console.log('All players data:', playersData);
 
-        // Map player IDs to their full data
         const clubPlayers = playerIds
           .map(playerId => {
             const playerData = playersData[playerId];
             if (!playerData) {
-              console.log('No data found for player:', playerId);
               return null;
             }
             return {
@@ -84,13 +83,9 @@ function ClubPlayers() {
               player.email && 
               player.firstName && 
               player.lastName;
-            if (!hasRequiredFields) {
-              console.log('Player missing required fields:', player);
-            }
             return hasRequiredFields;
           });
 
-        console.log('Processed club players:', clubPlayers);
         setPlayers(clubPlayers);
       } catch (error) {
         console.error('Error fetching players:', error);
@@ -100,7 +95,7 @@ function ClubPlayers() {
       }
     };
 
-    fetchPlayers();
+    fetchData();
   }, [clubId]);
 
   if (loading) {
@@ -204,13 +199,15 @@ function ClubPlayers() {
         </Paper>
       )}
 
-      <Box sx={{ position: 'fixed', bottom: 32, right: 32 }}>
-        <ActionButton
-          title="Invite Player"
-          onClick={() => navigate(`/clubs/${clubId}/newPlayer`)}
-          icon={<PersonAddIcon />}
-        />
-      </Box>
+      {userRole === 'admin' && (
+        <Box sx={{ position: 'fixed', bottom: 32, right: 32 }}>
+          <ActionButton
+            title="Invite Player"
+            onClick={() => navigate(`/clubs/${clubId}/newPlayer`)}
+            icon={<PersonAddIcon />}
+          />
+        </Box>
+      )}
     </Container>
   );
 }

@@ -47,9 +47,9 @@ import FilterListIcon from '@mui/icons-material/FilterList';
 
 interface BuyinFormProps {
   players: Player[];
-  onBuyin: (playerId: string, amount: number, isPayBox: boolean) => void;
-  onRemoveBuyin: (playerId: string, buyinId: string) => void;
-  onEditBuyin: (
+  onBuyin?: (playerId: string, amount: number, isPayBox: boolean) => void;
+  onRemoveBuyin?: (playerId: string, buyinId: string) => void;
+  onEditBuyin?: (
     playerId: string,
     buyinId: string,
     amount: number,
@@ -96,6 +96,9 @@ function BuyinForm({ players, onBuyin, onRemoveBuyin, onEditBuyin, isSessionClos
     }
   });
 
+  // Add a helper to check if user has edit permissions
+  const hasEditPermissions = Boolean(onBuyin && onRemoveBuyin && onEditBuyin);
+
   const handleEditClick = (buyin: BuyinData) => {
     setEditingBuyin(buyin);
     setEditAmount(buyin.amount.toString());
@@ -105,7 +108,7 @@ function BuyinForm({ players, onBuyin, onRemoveBuyin, onEditBuyin, isSessionClos
   };
 
   const handleEditConfirm = () => {
-    if (editingBuyin && editAmount && editDateTime) {
+    if (editingBuyin && editAmount && editDateTime && onEditBuyin) {
       onEditBuyin(
         editingBuyin.playerId,
         editingBuyin.id,
@@ -128,7 +131,7 @@ function BuyinForm({ players, onBuyin, onRemoveBuyin, onEditBuyin, isSessionClos
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const buyinAmount = parseFloat(amount);
-    if (selectedPlayerId && !isNaN(buyinAmount)) {
+    if (selectedPlayerId && !isNaN(buyinAmount) && onBuyin) {
       onBuyin(selectedPlayerId, buyinAmount, isPayBox);
       setAmount("");
       setIsPayBox(false);
@@ -252,7 +255,7 @@ function BuyinForm({ players, onBuyin, onRemoveBuyin, onEditBuyin, isSessionClos
               value={selectedPlayerId}
               onChange={(e) => setSelectedPlayerId(e.target.value)}
               label="Player"
-              disabled={isSessionClosed}
+              disabled={isSessionClosed || !hasEditPermissions}
             >
               {players.map((player) => (
                 <MenuItem key={player.id} value={player.id}>
@@ -269,7 +272,7 @@ function BuyinForm({ players, onBuyin, onRemoveBuyin, onEditBuyin, isSessionClos
             onChange={(e) => setAmount(e.target.value)}
             size="small"
             inputProps={{ step: "0.5" }}
-            disabled={isSessionClosed}
+            disabled={isSessionClosed || !hasEditPermissions}
             sx={{ width: { xs: '100%', sm: 'auto' } }}
           />
 
@@ -278,7 +281,7 @@ function BuyinForm({ players, onBuyin, onRemoveBuyin, onEditBuyin, isSessionClos
               <Switch
                 checked={isPayBox}
                 onChange={(e) => setIsPayBox(e.target.checked)}
-                disabled={isSessionClosed}
+                disabled={isSessionClosed || !hasEditPermissions}
               />
             }
             label="PayBox"
@@ -291,7 +294,7 @@ function BuyinForm({ players, onBuyin, onRemoveBuyin, onEditBuyin, isSessionClos
           <Button
             type="submit"
             variant="contained"
-            disabled={!selectedPlayerId || !amount || isSessionClosed}
+            disabled={!selectedPlayerId || !amount || isSessionClosed || !hasEditPermissions}
             fullWidth
             sx={{
               bgcolor: '#673ab7',
@@ -374,14 +377,14 @@ function BuyinForm({ players, onBuyin, onRemoveBuyin, onEditBuyin, isSessionClos
                     <IconButton
                       size="small"
                       onClick={() => handleEditClick(buyin)}
-                      disabled={isSessionClosed}
+                      disabled={isSessionClosed || !hasEditPermissions}
                     >
                       <EditIcon fontSize="small" />
                     </IconButton>
                     <IconButton
                       size="small"
-                      onClick={() => onRemoveBuyin(buyin.playerId, buyin.id)}
-                      disabled={isSessionClosed}
+                      onClick={() => onRemoveBuyin && onRemoveBuyin(buyin.playerId, buyin.id)}
+                      disabled={isSessionClosed || !hasEditPermissions}
                     >
                       <DeleteIcon fontSize="small" />
                     </IconButton>
@@ -460,7 +463,7 @@ function BuyinForm({ players, onBuyin, onRemoveBuyin, onEditBuyin, isSessionClos
               size="small"
               fullWidth
               inputProps={{ step: "0.5" }}
-              disabled={isSessionClosed}
+              disabled={isSessionClosed || !hasEditPermissions}
             />
             <LocalizationProvider dateAdapter={AdapterDayjs}>
               <ThemeProvider theme={theme}>
@@ -470,21 +473,11 @@ function BuyinForm({ players, onBuyin, onRemoveBuyin, onEditBuyin, isSessionClos
                   onChange={(newValue) => setEditDateTime(newValue)}
                   format="DD/MM/YYYY HH:mm"
                   ampm={false}
-                  disabled={isSessionClosed}
+                  disabled={isSessionClosed || !hasEditPermissions}
                   slotProps={{
                     textField: {
                       size: "small",
                       fullWidth: true
-                    },
-                    day: {
-                      sx: {
-                        '&.Mui-selected': {
-                          backgroundColor: '#673ab7 !important',
-                          '&:hover': {
-                            backgroundColor: '#563098 !important'
-                          }
-                        }
-                      }
                     }
                   }}
                 />
@@ -495,7 +488,7 @@ function BuyinForm({ players, onBuyin, onRemoveBuyin, onEditBuyin, isSessionClos
                 <Switch
                   checked={editIsPayBox}
                   onChange={(e) => setEditIsPayBox(e.target.checked)}
-                  disabled={isSessionClosed}
+                  disabled={isSessionClosed || !hasEditPermissions}
                 />
               }
               label="PayBox"
@@ -507,7 +500,7 @@ function BuyinForm({ players, onBuyin, onRemoveBuyin, onEditBuyin, isSessionClos
           <Button 
             onClick={handleEditConfirm} 
             variant="contained"
-            disabled={isSessionClosed}
+            disabled={isSessionClosed || !hasEditPermissions}
             sx={{
               bgcolor: '#673ab7',
               '&:hover': { bgcolor: '#563098' }

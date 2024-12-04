@@ -26,6 +26,7 @@ interface ClubDetails {
   id: string;
   name: string;
   description?: string;
+  role?: string;
 }
 
 function ClubDetails() {
@@ -35,6 +36,7 @@ function ClubDetails() {
   const [error, setError] = useState<string | null>(null);
   const [club, setClub] = useState<ClubDetails | null>(null);
   const [hasAccess, setHasAccess] = useState<boolean | null>(null);
+  const [userRole, setUserRole] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchClubDetails = async () => {
@@ -54,6 +56,7 @@ function ClubDetails() {
 
         const hasClubAccess = user.clubs && user.clubs[clubId] !== undefined;
         setHasAccess(hasClubAccess);
+        setUserRole(user.clubs[clubId]?.role || null);
 
         if (!hasClubAccess) {
           setError('You do not have permission to view this club');
@@ -202,18 +205,20 @@ function ClubDetails() {
         </Box>
 
         {/* Action Buttons */}
-        <Box sx={{ position: 'fixed', bottom: 24, right: 24, display: 'flex', gap: 2 }}>
-          <ActionButton
-            title="Invite Player"
-            onClick={() => navigate(`/clubs/${clubId}/newPlayer`)}
-            icon={<PersonAddIcon />}
-          />
-          <ActionButton
-            title="New Session"
-            onClick={() => navigate(`/clubs/${clubId}/newSession`)}
-            icon={<AddIcon />}
-          />
-        </Box>
+        {userRole === 'admin' && (
+          <Box sx={{ position: 'fixed', bottom: 24, right: 24, display: 'flex', gap: 2 }}>
+            <ActionButton
+              title="Invite Player"
+              onClick={() => navigate(`/clubs/${clubId}/newPlayer`)}
+              icon={<PersonAddIcon />}
+            />
+            <ActionButton
+              title="New Session"
+              onClick={() => navigate(`/clubs/${clubId}/newSession`)}
+              icon={<AddIcon />}
+            />
+          </Box>
+        )}
       </Paper>
     </Container>
   );

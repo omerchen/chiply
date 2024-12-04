@@ -25,10 +25,10 @@ import { formatMoney } from "../../../utils/formatters";
 
 interface CashoutFormProps {
   players: Player[];
-  session?: SessionDetails;
-  onCashout: (playerId: string, amount: number, stackValue: number) => void;
-  onResetPlayerCashout: (playerId: string) => void;
-  onResetAllCashouts: () => void;
+  session: SessionDetails;
+  onCashout?: (playerId: string, amount: number, stackValue: number) => void;
+  onResetPlayerCashout?: (playerId: string) => void;
+  onResetAllCashouts?: () => void;
   isSessionClosed?: boolean;
 }
 
@@ -53,44 +53,47 @@ function CashoutForm({
   const [confirmationName, setConfirmationName] = useState("");
   const [confirmationDeleteAll, setConfirmationDeleteAll] = useState("");
 
+  const hasEditPermissions = Boolean(onCashout && onResetPlayerCashout && onResetAllCashouts);
+
+  const isSubmitDisabled = () => {
+    if (isSessionClosed || !hasEditPermissions) return true;
+    if (!selectedPlayerId || !amount) return true;
+    if (isMiscalculation && !stackValue) return true;
+    return false;
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedPlayerId || !amount) return;
-
-    const cashoutAmount = parseFloat(amount);
-    if (isNaN(cashoutAmount)) return;
-
-    if (isMiscalculation) {
-      const stackValueNum = parseFloat(stackValue);
-      if (isNaN(stackValueNum)) return;
-      onCashout(selectedPlayerId, cashoutAmount, stackValueNum);
-    } else {
-      // If not miscalculation, use the same value for both stack and cashout
-      onCashout(selectedPlayerId, cashoutAmount, cashoutAmount);
+    if (selectedPlayerId && amount && onCashout) {
+      const cashoutAmount = Number(amount);
+      const stackValueAmount = isMiscalculation ? Number(stackValue) : cashoutAmount;
+      onCashout(selectedPlayerId, cashoutAmount, stackValueAmount);
+      setStackValue("");
+      setAmount("");
+      setSelectedPlayerId("");
+      setIsMiscalculation(false);
     }
-
-    setSelectedPlayerId("");
-    setAmount("");
-    setStackValue("");
-    setIsMiscalculation(false);
   };
 
   const handleResetPlayerCashout = (playerId: string, playerName: string) => {
+    if (!onResetPlayerCashout) return;
     setPlayerToReset({ id: playerId, name: playerName });
     setResetDialogOpen(true);
   };
 
   const handleConfirmResetPlayer = () => {
-    if (!playerToReset) return;
+    if (!playerToReset || !onResetPlayerCashout) return;
     onResetPlayerCashout(playerToReset.id);
     handleCloseResetDialog();
   };
 
   const handleResetAllCashouts = () => {
+    if (!onResetAllCashouts) return;
     setResetAllDialogOpen(true);
   };
 
   const handleConfirmResetAll = () => {
+    if (!onResetAllCashouts) return;
     onResetAllCashouts();
     handleCloseResetAllDialog();
   };
@@ -169,7 +172,7 @@ function CashoutForm({
               value={selectedPlayerId}
               onChange={(e) => setSelectedPlayerId(e.target.value)}
               label="Player"
-              disabled={isSessionClosed}
+              disabled={isSessionClosed || !hasEditPermissions}
             >
               {playersWithBuyins
                 .filter((player) => {
@@ -193,7 +196,7 @@ function CashoutForm({
             onChange={(e) => setAmount(e.target.value)}
             size="small"
             inputProps={{ step: "0.5" }}
-            disabled={isSessionClosed}
+            disabled={isSessionClosed || !hasEditPermissions}
             sx={{ width: { xs: "100%", sm: "auto" } }}
           />
 
@@ -205,7 +208,7 @@ function CashoutForm({
               onChange={(e) => setStackValue(e.target.value)}
               size="small"
               inputProps={{ step: "0.5" }}
-              disabled={isSessionClosed}
+              disabled={isSessionClosed || !hasEditPermissions}
               sx={{ width: { xs: "100%", sm: "auto" } }}
             />
           )}
@@ -215,7 +218,7 @@ function CashoutForm({
               <Switch
                 checked={isMiscalculation}
                 onChange={(e) => setIsMiscalculation(e.target.checked)}
-                disabled={isSessionClosed}
+                disabled={isSessionClosed || !hasEditPermissions}
               />
             }
             label="Miscalculation"
@@ -228,7 +231,7 @@ function CashoutForm({
           <Button
             type="submit"
             variant="contained"
-            disabled={!selectedPlayerId || !amount || isSessionClosed}
+            disabled={isSubmitDisabled()}
             fullWidth
             sx={{
               bgcolor: "#673ab7",
@@ -291,7 +294,7 @@ function CashoutForm({
                   }
                   variant="contained"
                   disableElevation
-                  disabled={isSessionClosed}
+                  disabled={isSessionClosed || !hasEditPermissions}
                   sx={{
                     ml: { xs: 0, sm: 1 },
                     width: { xs: "100%", sm: "auto" },
@@ -327,7 +330,7 @@ function CashoutForm({
               onClick={handleResetAllCashouts}
               variant="contained"
               disableElevation
-              disabled={isSessionClosed}
+              disabled={isSessionClosed || !hasEditPermissions}
               fullWidth
               sx={{
                 width: { xs: "100%", sm: "auto" },
