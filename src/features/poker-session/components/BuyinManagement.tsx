@@ -258,104 +258,168 @@ function BuyinForm({ players, onBuyin, onRemoveBuyin, onEditBuyin, isSessionClos
         </Stack>
       </form>
 
-      <TableContainer 
-        component={Paper} 
-        sx={{ 
-          mb: 3,
-          width: { xs: 'calc(100% + 24px)', sm: '100%' },
-          mx: { xs: -1.5, sm: 0 }
-        }}
-      >
+      <TableContainer component={Paper}>
         <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell 
-                sx={{ 
-                  display: { xs: 'none', sm: 'table-cell' },
-                  px: { xs: 1, sm: 2 }
-                }}
-              >
-                Time
+              <TableCell>
+                <Stack direction="row" alignItems="center" spacing={1}>
+                  <TableSortLabel
+                    active={orderBy === 'timestamp'}
+                    direction={order}
+                    onClick={() => {
+                      setOrder(order === 'asc' ? 'desc' : 'asc');
+                      setOrderBy('timestamp');
+                    }}
+                  >
+                    Time
+                  </TableSortLabel>
+                </Stack>
               </TableCell>
-              <TableCell sx={{ px: { xs: 1, sm: 2 } }}>Name</TableCell>
-              <TableCell align="right" sx={{ px: { xs: 1, sm: 2 } }}>Type</TableCell>
-              <TableCell align="right" sx={{ px: { xs: 1, sm: 2 } }}>Amount</TableCell>
-              <TableCell 
-                align="right" 
-                sx={{ 
-                  width: { xs: 80, sm: 100 },
-                  px: { xs: 1, sm: 2 }
-                }}
-              >
-                Actions
+              <TableCell>
+                <Stack direction="row" alignItems="center" spacing={1}>
+                  Name
+                  <IconButton 
+                    size="small"
+                    onClick={(e) => setPlayerFilterAnchor(e.currentTarget)}
+                  >
+                    <FilterListIcon fontSize="small" />
+                  </IconButton>
+                </Stack>
               </TableCell>
+              <TableCell>Amount</TableCell>
+              <TableCell>
+                <Stack direction="row" alignItems="center" spacing={1}>
+                  Type
+                  <IconButton 
+                    size="small"
+                    onClick={(e) => setTypeFilterAnchor(e.currentTarget)}
+                  >
+                    <FilterListIcon fontSize="small" />
+                  </IconButton>
+                </Stack>
+              </TableCell>
+              <TableCell>Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {sortedData.map((buyin) => {
-              const player = players.find(p => p.id === buyin.playerId);
-              if (!player) return null;
-
-              return (
-                <TableRow key={buyin.id}>
-                  <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
-                    {formatTimeAgo(buyin.timestamp)}
-                  </TableCell>
-                  <TableCell>{player.name}</TableCell>
-                  <TableCell align="right">
-                    {buyin.isPayBox ? (
-                      <Chip 
-                        icon={<PaymentsIcon />} 
-                        label="PayBox" 
-                        size="small"
-                        sx={{ 
-                          fontSize: { xs: '0.75rem', sm: '0.875rem' }
-                        }} 
-                      />
-                    ) : 'Cash'}
-                  </TableCell>
-                  <TableCell align="right">₪{formatMoney(buyin.amount)}</TableCell>
-                  <TableCell align="right">
-                    <Stack 
-                      direction="row" 
-                      spacing={1} 
-                      justifyContent="flex-end"
-                      sx={{ 
-                        '& .MuiIconButton-root': {
-                          padding: { xs: '4px', sm: '8px' }
-                        }
-                      }}
+            {sortedData.map((buyin) => (
+              <TableRow key={buyin.id}>
+                <TableCell>{formatTimeAgo(buyin.timestamp)}</TableCell>
+                <TableCell>{buyin.playerName}</TableCell>
+                <TableCell>₪{formatMoney(buyin.amount)}</TableCell>
+                <TableCell>
+                  {buyin.isPayBox ? (
+                    <Chip 
+                      label="PayBox" 
+                      size="small" 
+                      color="secondary"
+                    />
+                  ) : (
+                    <Chip 
+                      label="Regular" 
+                      size="small" 
+                      variant="outlined"
+                    />
+                  )}
+                </TableCell>
+                <TableCell>
+                  <Stack direction="row" spacing={1}>
+                    <IconButton
+                      size="small"
+                      onClick={() => handleEditClick(buyin)}
+                      disabled={isSessionClosed}
                     >
-                      <Tooltip title="Edit">
-                        <span>
-                          <IconButton
-                            onClick={() => handleEditClick(buyin)}
-                            disabled={isSessionClosed}
-                            size="small"
-                          >
-                            <EditIcon fontSize="small" />
-                          </IconButton>
-                        </span>
-                      </Tooltip>
-                      <Tooltip title="Delete">
-                        <span>
-                          <IconButton
-                            onClick={() => onRemoveBuyin(buyin.playerId, buyin.id)}
-                            disabled={isSessionClosed}
-                            size="small"
-                          >
-                            <DeleteIcon fontSize="small" />
-                          </IconButton>
-                        </span>
-                      </Tooltip>
-                    </Stack>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
+                      <EditIcon fontSize="small" />
+                    </IconButton>
+                    <IconButton
+                      size="small"
+                      onClick={() => onRemoveBuyin(buyin.playerId, buyin.id)}
+                      disabled={isSessionClosed}
+                    >
+                      <DeleteIcon fontSize="small" />
+                    </IconButton>
+                  </Stack>
+                </TableCell>
+              </TableRow>
+            ))}
           </TableBody>
         </Table>
       </TableContainer>
+
+      {/* Player Filter Menu */}
+      <Menu
+        anchorEl={playerFilterAnchor}
+        open={Boolean(playerFilterAnchor)}
+        onClose={() => setPlayerFilterAnchor(null)}
+      >
+        <MenuItem 
+          onClick={() => {
+            setSelectedPlayerFilter('all');
+            setPlayerFilterAnchor(null);
+          }}
+        >
+          <ListItemIcon>
+            <Checkbox checked={selectedPlayerFilter === 'all'} />
+          </ListItemIcon>
+          <ListItemText>All Players</ListItemText>
+        </MenuItem>
+        {players.map(player => (
+          <MenuItem 
+            key={player.id}
+            onClick={() => {
+              setSelectedPlayerFilter(player.id);
+              setPlayerFilterAnchor(null);
+            }}
+          >
+            <ListItemIcon>
+              <Checkbox checked={selectedPlayerFilter === player.id} />
+            </ListItemIcon>
+            <ListItemText>{player.name}</ListItemText>
+          </MenuItem>
+        ))}
+      </Menu>
+
+      {/* Type Filter Menu */}
+      <Menu
+        anchorEl={typeFilterAnchor}
+        open={Boolean(typeFilterAnchor)}
+        onClose={() => setTypeFilterAnchor(null)}
+      >
+        <MenuItem 
+          onClick={() => {
+            setPayboxFilter('all');
+            setTypeFilterAnchor(null);
+          }}
+        >
+          <ListItemIcon>
+            <Checkbox checked={payboxFilter === 'all'} />
+          </ListItemIcon>
+          <ListItemText>All Types</ListItemText>
+        </MenuItem>
+        <MenuItem 
+          onClick={() => {
+            setPayboxFilter('regular');
+            setTypeFilterAnchor(null);
+          }}
+        >
+          <ListItemIcon>
+            <Checkbox checked={payboxFilter === 'regular'} />
+          </ListItemIcon>
+          <ListItemText>Regular</ListItemText>
+        </MenuItem>
+        <MenuItem 
+          onClick={() => {
+            setPayboxFilter('paybox');
+            setTypeFilterAnchor(null);
+          }}
+        >
+          <ListItemIcon>
+            <Checkbox checked={payboxFilter === 'paybox'} />
+          </ListItemIcon>
+          <ListItemText>PayBox</ListItemText>
+        </MenuItem>
+      </Menu>
 
       <Dialog
         open={editDialogOpen}
