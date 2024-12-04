@@ -20,10 +20,6 @@ interface PlayerListProps {
 function PlayerList({ players, onRemovePlayer, onAddPlayer, isSessionClosed }: PlayerListProps) {
   return (
     <div>
-      <Typography variant="h5" gutterBottom>
-        Players
-      </Typography>
-
       <List>
         {players.map((player) => (
           <ListItem

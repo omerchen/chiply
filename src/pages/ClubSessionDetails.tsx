@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { v4 as uuidv4 } from 'uuid';
 import {
   Container,
@@ -18,9 +18,15 @@ import {
   DialogTitle,
   DialogContent,
   DialogContentText,
-  DialogActions
+  DialogActions,
+  Stack
 } from '@mui/material';
-import { readData, updateData, writeData } from '../services/database';
+import GroupIcon from '@mui/icons-material/Group';
+import PaymentsIcon from '@mui/icons-material/Payments';
+import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
+import AssessmentIcon from '@mui/icons-material/Assessment';
+import EventIcon from '@mui/icons-material/Event';
+import { readData, updateData, writeData, deleteData } from '../services/database';
 import ClubBreadcrumbs from '../components/ClubBreadcrumbs';
 import PlayerList from '../features/poker-session/components/PlayerManagement';
 import BuyinForm from '../features/poker-session/components/BuyinManagement';
@@ -88,6 +94,7 @@ interface ClubPlayer {
 
 function ClubSessionDetails() {
   const { clubId, sessionId } = useParams<{ clubId: string; sessionId: string }>();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [session, setSession] = useState<SessionDetails | null>(null);
   const [clubName, setClubName] = useState('');
@@ -684,6 +691,17 @@ function ClubSessionDetails() {
     }
   };
 
+  const handleDeleteSession = async () => {
+    if (!session || !clubId || !sessionId) return;
+
+    try {
+      await deleteData(`sessions/${sessionId}`);
+      navigate(`/clubs/${clubId}/sessions`);
+    } catch (error) {
+      console.error('Error deleting session:', error);
+    }
+  };
+
   if (loading) {
     return (
       <Container sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
@@ -713,58 +731,118 @@ function ClubSessionDetails() {
   );
 
   return (
-    <Container maxWidth="lg" sx={{ mt: 3, mb: 3 }}>
-      <ClubBreadcrumbs 
-        clubId={clubId!} 
-        clubName={clubName}
-        currentPage="Session Details"
-        parentPage={{
-          name: "Sessions",
-          path: "sessions"
+    <Container 
+      maxWidth="lg" 
+      sx={{ 
+        mt: { xs: 2, sm: 3 }, 
+        mb: { xs: 2, sm: 3 },
+        px: { xs: 0, sm: 2, md: 3 },
+        overflow: 'hidden'
+      }}
+    >
+      <Box sx={{ px: { xs: 1, sm: 0 } }}>
+        <ClubBreadcrumbs 
+          clubId={clubId!} 
+          clubName={clubName}
+          currentPage="Session Details"
+          parentPage={{
+            name: "Sessions",
+            path: "sessions"
+          }}
+        />
+      </Box>
+      <Paper 
+        elevation={3} 
+        sx={{ 
+          p: { xs: 1.5, sm: 2, md: 3 },
+          borderRadius: { xs: 0, sm: 2 },
+          '& .MuiTableContainer-root': {
+            margin: { xs: -1.5, sm: 0 },
+            width: { xs: 'calc(100% + 24px)', sm: '100%' }
+          }
         }}
-      />
-      <Paper elevation={3} sx={{ p: 4, borderRadius: 2 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+      >
+        <Box sx={{ 
+          display: 'flex', 
+          flexDirection: { xs: 'column', sm: 'row' },
+          justifyContent: 'space-between', 
+          alignItems: { xs: 'stretch', sm: 'flex-start' },
+          gap: { xs: 2, sm: 0 },
+          mb: 2 
+        }}>
           <div>
-            <Typography variant="h5" gutterBottom>
-              Session Details
-            </Typography>
-            <Typography color="text.secondary">
+            <Stack 
+              direction="row" 
+              spacing={1} 
+              alignItems="center" 
+              sx={{ mb: { xs: 2, sm: 3 } }}
+            >
+              <EventIcon sx={{ color: '#673ab7' }} />
+              <Typography variant="h5">Session Details</Typography>
+            </Stack>
+            <Typography color="text.secondary" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>
               Started: {new Date(session.details.startTime).toLocaleString()}
             </Typography>
-            <Typography color="text.secondary" gutterBottom>
+            <Typography color="text.secondary" gutterBottom sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>
               Stakes: {session.details.stakes.smallBlind}/{session.details.stakes.bigBlind}
               {session.details.stakes.ante && ` (${session.details.stakes.ante} ante)`}
             </Typography>
           </div>
-          <Button
-            variant={session.status === "open" ? "contained" : "outlined"}
-            onClick={toggleSessionStatus}
-            disabled={session.status === "open" && moneyInPlay !== 0}
-            sx={{
-              bgcolor: session.status === "open" ? 'error.main' : 'transparent',
-              color: session.status === "open" ? 'white' : 'success.main',
-              borderColor: session.status === "open" ? undefined : 'success.main',
-              '&:hover': { 
-                bgcolor: session.status === "open" ? 'error.dark' : 'success.light',
+          {players.length > 0 ? (
+            <Button
+              variant={session.status === "open" ? "contained" : "outlined"}
+              onClick={toggleSessionStatus}
+              disabled={session.status === "open" && moneyInPlay !== 0}
+              sx={{
+                width: { xs: '100%', sm: 'auto' },
+                bgcolor: session.status === "open" ? 'error.main' : 'transparent',
+                color: session.status === "open" ? 'white' : 'success.main',
                 borderColor: session.status === "open" ? undefined : 'success.main',
-              },
-              '&.Mui-disabled': {
-                bgcolor: session.status === "open" ? 'rgba(211, 47, 47, 0.5)' : undefined
-              }
-            }}
-          >
-            {session.status === "open" ? "Close Session" : "Reopen Session"}
-          </Button>
+                '&:hover': { 
+                  bgcolor: session.status === "open" ? 'error.dark' : 'success.light',
+                  borderColor: session.status === "open" ? undefined : 'success.main',
+                },
+                '&.Mui-disabled': {
+                  bgcolor: session.status === "open" ? 'rgba(211, 47, 47, 0.5)' : undefined
+                }
+              }}
+            >
+              {session.status === "open" ? "Close Session" : "Reopen Session"}
+            </Button>
+          ) : (
+            <Button
+              variant="contained"
+              onClick={handleDeleteSession}
+              sx={{
+                width: { xs: '100%', sm: 'auto' },
+                bgcolor: 'error.main',
+                color: 'white',
+                '&:hover': { 
+                  bgcolor: 'error.dark'
+                }
+              }}
+            >
+              Delete Session
+            </Button>
+          )}
         </Box>
 
-        <Divider sx={{ my: 3 }} />
+        <Divider sx={{ my: { xs: 2, sm: 3 } }} />
 
-        <Grid container spacing={3}>
+        <Grid container spacing={{ xs: 4, sm: 5 }}>
           <Grid item xs={12}>
-            <Box sx={{ mb: 3 }}>
-              <Grid container spacing={2} alignItems="center">
-                <Grid item xs>
+            <Stack 
+              direction="row" 
+              spacing={1} 
+              alignItems="center" 
+              sx={{ mb: { xs: 2, sm: 3 } }}
+            >
+              <GroupIcon sx={{ color: '#673ab7' }} />
+              <Typography variant="h5">Players</Typography>
+            </Stack>
+            <Box sx={{ mb: { xs: 2, sm: 3 } }}>
+              <Grid container spacing={{ xs: 1, sm: 2 }} alignItems="center">
+                <Grid item xs={12} sm>
                   <FormControl fullWidth size="small">
                     <InputLabel>Add Player</InputLabel>
                     <Select
@@ -781,14 +859,16 @@ function ClubSessionDetails() {
                     </Select>
                   </FormControl>
                 </Grid>
-                <Grid item>
+                <Grid item xs={12} sm="auto">
                   <Button
                     variant="contained"
                     onClick={addPlayer}
                     disabled={!selectedPlayerId || session.status === "close"}
+                    fullWidth
                     sx={{
                       bgcolor: '#673ab7',
-                      '&:hover': { bgcolor: '#563098' }
+                      '&:hover': { bgcolor: '#563098' },
+                      width: { xs: '100%', sm: 'auto' }
                     }}
                   >
                     Add Player
@@ -805,6 +885,16 @@ function ClubSessionDetails() {
           </Grid>
 
           <Grid item xs={12}>
+            <Divider sx={{ mb: { xs: 4, sm: 5 }, bgcolor: 'grey.200' }} />
+            <Stack 
+              direction="row" 
+              spacing={1} 
+              alignItems="center" 
+              sx={{ mb: { xs: 2, sm: 3 } }}
+            >
+              <PaymentsIcon sx={{ color: '#673ab7' }} />
+              <Typography variant="h5">Buy-ins</Typography>
+            </Stack>
             <BuyinForm
               players={players}
               onBuyin={addBuyin}
@@ -815,6 +905,16 @@ function ClubSessionDetails() {
           </Grid>
 
           <Grid item xs={12}>
+            <Divider sx={{ mb: { xs: 4, sm: 5 }, bgcolor: 'grey.200' }} />
+            <Stack 
+              direction="row" 
+              spacing={1} 
+              alignItems="center" 
+              sx={{ mb: { xs: 2, sm: 3 } }}
+            >
+              <AccountBalanceWalletIcon sx={{ color: '#673ab7' }} />
+              <Typography variant="h5">Cashouts</Typography>
+            </Stack>
             <CashoutForm
               players={players}
               session={session}
@@ -826,44 +926,64 @@ function ClubSessionDetails() {
           </Grid>
 
           <Grid item xs={12}>
+            <Divider sx={{ mb: { xs: 4, sm: 5 }, bgcolor: 'grey.200' }} />
+            <Stack 
+              direction="row" 
+              spacing={1} 
+              alignItems="center" 
+              sx={{ mb: { xs: 2, sm: 3 } }}
+            >
+              <AssessmentIcon sx={{ color: '#673ab7' }} />
+              <Typography variant="h5">Game Summary</Typography>
+            </Stack>
             <GameSummary players={players} />
           </Grid>
 
           {moneyInPlay === 0 && (
             <Grid item xs={12}>
+              <Divider sx={{ mb: { xs: 4, sm: 5 }, bgcolor: 'grey.200' }} />
               <TransactionList players={players} />
             </Grid>
           )}
 
           {moneyInPlay !== 0 && allPlayersCashedOut && (
             <Grid item xs={12}>
+              <Divider sx={{ mb: { xs: 4, sm: 5 }, bgcolor: 'grey.200' }} />
               <Paper 
                 elevation={0} 
                 sx={{ 
-                  p: 2, 
+                  p: { xs: 1.5, sm: 2 }, 
                   bgcolor: 'error.main',
                   color: 'error.contrastText',
                   borderRadius: 1
                 }}
               >
-                <Typography variant="subtitle1" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Typography 
+                  variant="subtitle1" 
+                  sx={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: 1,
+                    fontSize: { xs: '0.875rem', sm: '1rem' }
+                  }}
+                >
                   ⚠️ Money mismatch detected: {moneyInPlay > 0 ? 'Missing' : 'Excess'} ₪{Math.abs(moneyInPlay)}
                 </Typography>
                 {moneyInPlay > 0 ? (
                   <>
-                    <Typography variant="body2" sx={{ mt: 1 }}>
+                    <Typography variant="body2" sx={{ mt: 1, fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
                       Don't leave money on the table! 🎲 Looks like some chips are still in play.
                     </Typography>
-                    <Typography variant="body2" sx={{ mt: 0.5 }}>
+                    <Typography variant="body2" sx={{ mt: 0.5, fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
                       The total cashouts are less than the total buyins. Please check if all stacks were counted correctly.
                     </Typography>
                   </>
                 ) : (
                   <>
-                    <Typography variant="body2" sx={{ mt: 1 }}>
+                    <Typography variant="body2" sx={{ mt: 1, fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
                       Whoa there, money printer! 💸 We've got more money than we started with.
                     </Typography>
-                    <Typography variant="body2" sx={{ mt: 0.5 }}>
+                    <Typography variant="body2" sx={{ mt: 0.5, fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
                       The total cashouts exceed the total buyins. Double-check those stack counts!
                     </Typography>
                   </>

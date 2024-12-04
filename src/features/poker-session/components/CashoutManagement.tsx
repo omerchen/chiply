@@ -113,13 +113,17 @@ function CashoutForm({
 
   return (
     <div>
-      <Typography variant="h5" gutterBottom>
-        Cashouts
-      </Typography>
-
       <form onSubmit={handleSubmit} className="form-row">
-        <Stack direction="row" spacing={2} sx={{ mb: 3 }}>
-          <FormControl sx={{ minWidth: 200 }} size="small">
+        <Stack 
+          direction={{ xs: 'column', sm: 'row' }} 
+          spacing={{ xs: 1.5, sm: 2 }} 
+          sx={{ 
+            mb: 3,
+            width: '100%',
+            px: { xs: 0.5, sm: 0 }
+          }}
+        >
+          <FormControl sx={{ minWidth: { sm: 200 }, width: { xs: '100%', sm: 'auto' } }} size="small">
             <InputLabel>Player</InputLabel>
             <Select
               value={selectedPlayerId}
@@ -145,6 +149,7 @@ function CashoutForm({
             size="small"
             inputProps={{ step: "0.5" }}
             disabled={isSessionClosed}
+            sx={{ width: { xs: '100%', sm: 'auto' } }}
           />
 
           {isMiscalculation && (
@@ -156,6 +161,7 @@ function CashoutForm({
               size="small"
               inputProps={{ step: "0.5" }}
               disabled={isSessionClosed}
+              sx={{ width: { xs: '100%', sm: 'auto' } }}
             />
           )}
 
@@ -168,15 +174,21 @@ function CashoutForm({
               />
             }
             label="Miscalculation"
+            sx={{ 
+              mx: { xs: 0, sm: 1 },
+              width: { xs: '100%', sm: 'auto' }
+            }}
           />
 
           <Button
             type="submit"
             variant="contained"
             disabled={!selectedPlayerId || !amount || isSessionClosed}
+            fullWidth
             sx={{
-              bgcolor: "#673ab7",
-              "&:hover": { bgcolor: "#563098" },
+              bgcolor: '#673ab7',
+              '&:hover': { bgcolor: '#563098' },
+              width: { xs: '100%', sm: 'auto' }
             }}
           >
             Add Cashout
@@ -184,7 +196,21 @@ function CashoutForm({
         </Stack>
       </form>
 
-      <List>
+      <List sx={{ 
+        width: '100%',
+        mx: { xs: -1.5, sm: 0 },
+        px: { xs: 1.5, sm: 0 },
+        '& .MuiListItem-root': {
+          flexDirection: { xs: 'column', sm: 'row' },
+          alignItems: { xs: 'stretch', sm: 'center' },
+          gap: { xs: 1, sm: 0 },
+          py: { xs: 2, sm: 1 },
+          px: { xs: 0, sm: 1 }
+        },
+        '& .MuiListItemText-root': {
+          my: { xs: 0, sm: 1 }
+        }
+      }}>
         {players.map((player) => {
           const totalBuyins = player.buyins.reduce(
             (sum, buyin) => sum + buyin.amount,
@@ -200,32 +226,37 @@ function CashoutForm({
           return (
             <ListItem key={player.id}>
               <ListItemText
-                primary={player.name}
+                primary={
+                  <Typography variant="subtitle1" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>
+                    {player.name}
+                  </Typography>
+                }
                 secondary={
-                  playerCashout
-                    ? `Buyins: ₪${formatMoney(
-                        totalBuyins
-                      )} | Cashout: ₪${formatMoney(playerCashout.cashout)}${
-                        profit !== null
-                          ? ` | ${
-                              profit >= 0 ? "Profit" : "Loss"
-                            }: ₪${formatMoney(Math.abs(profit))}`
-                          : ""
-                      }`
-                    : `Buyins: ₪${formatMoney(totalBuyins)} | Not cashed out`
+                  <Typography variant="body2" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
+                    {playerCashout
+                      ? `Buyins: ₪${formatMoney(totalBuyins)} | Cashout: ₪${formatMoney(
+                          playerCashout.cashout
+                        )}${
+                          profit !== null
+                            ? ` | ${profit >= 0 ? "Profit" : "Loss"}: ₪${formatMoney(
+                                Math.abs(profit)
+                              )}`
+                            : ""
+                        }`
+                      : `Buyins: ₪${formatMoney(totalBuyins)} | Not cashed out`}
+                  </Typography>
                 }
               />
               {playerCashout && (
                 <Button
                   size="small"
-                  onClick={() =>
-                    handleResetPlayerCashout(player.id, player.name)
-                  }
+                  onClick={() => handleResetPlayerCashout(player.id, player.name)}
                   variant="contained"
                   disableElevation
                   disabled={isSessionClosed}
                   sx={{
-                    ml: 1,
+                    ml: { xs: 0, sm: 1 },
+                    width: { xs: '100%', sm: 'auto' },
                     textTransform: "none",
                     backgroundColor: "rgb(211, 47, 47) !important",
                     "&:hover": {
@@ -241,13 +272,18 @@ function CashoutForm({
         })}
       </List>
 
-      <Box sx={{ mt: 2 }}>
+      <Box sx={{ 
+        mt: 2,
+        px: { xs: 0.5, sm: 0 }
+      }}>
         <Button
           onClick={handleResetAllCashouts}
           variant="contained"
           disableElevation
           disabled={isSessionClosed}
+          fullWidth
           sx={{
+            width: { xs: '100%', sm: 'auto' },
             textTransform: "none",
             backgroundColor: "rgb(211, 47, 47) !important",
             "&:hover": {

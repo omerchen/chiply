@@ -32,10 +32,6 @@ function GameSummary({ players }: GameSummaryProps) {
 
   return (
     <div>
-      <Typography variant="h5" gutterBottom>
-        Game Summary
-      </Typography>
-
       <Typography variant="h6" color="primary" gutterBottom>
         Total Buyins: ₪{formatMoney(allBuyins)}
       </Typography>

@@ -32,10 +32,6 @@ function GameSummary({ players }: GameSummaryProps) {
 
   return (
     <div className="game-summary">
-      <Typography variant="h5" gutterBottom>
-        Game Summary
-      </Typography>
-
       <div className="metric total-buyins">
         <Typography variant="h6">
           Total Buyins: {formatMoney(allBuyins)}
