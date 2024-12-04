@@ -132,7 +132,11 @@ function CashoutForm({
               disabled={isSessionClosed}
             >
               {players
-                .filter((player) => !player.cashout)
+                .filter((player) => {
+                  const playerCashout = Object.values(session?.data?.cashouts || {})
+                    .find((cashout) => cashout.playerId === player.id);
+                  return !playerCashout;
+                })
                 .map((player) => (
                   <MenuItem key={player.id} value={player.id}>
                     {player.name}

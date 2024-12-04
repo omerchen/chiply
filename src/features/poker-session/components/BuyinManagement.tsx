@@ -130,6 +130,7 @@ function BuyinForm({ players, onBuyin, onRemoveBuyin, onEditBuyin, isSessionClos
       onBuyin(selectedPlayerId, buyinAmount, isPayBox);
       setAmount("");
       setIsPayBox(false);
+      setSelectedPlayerId("");
     }
   };
 

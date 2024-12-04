@@ -19,6 +19,7 @@ import AddIcon from "@mui/icons-material/Add";
 import { readData } from "../services/database";
 import ClubBreadcrumbs from "../components/ClubBreadcrumbs";
 import ActionButton from "../components/ActionButton";
+import { Player } from "../types/types";
 
 interface SessionDetails {
   id: string;
@@ -33,6 +34,30 @@ interface SessionDetails {
     };
   };
   status: string;
+  players?: Player[];
+}
+
+function calculateSessionDuration(session: SessionDetails): string | null {
+  if (!session?.data?.buyins || !session?.data?.cashouts) return null;
+
+  // Find first buyin time
+  const buyinTimes = Object.values(session.data.buyins).map(buyin => buyin.time);
+  if (buyinTimes.length === 0) return null;
+  const firstBuyinTime = Math.min(...buyinTimes);
+
+  // Find last cashout time
+  const cashoutTimes = Object.values(session.data.cashouts).map(cashout => cashout.time);
+  if (cashoutTimes.length === 0) return null;
+  const lastCashoutTime = Math.max(...cashoutTimes);
+
+  // Calculate duration in milliseconds
+  const durationMs = lastCashoutTime - firstBuyinTime;
+  
+  // Convert to hours and minutes
+  const hours = Math.floor(durationMs / (1000 * 60 * 60));
+  const minutes = Math.floor((durationMs % (1000 * 60 * 60)) / (1000 * 60));
+
+  return `${hours} hours${minutes > 0 ? ` and ${minutes} minutes` : ''}`;
 }
 
 function ClubSessions() {
@@ -148,6 +173,7 @@ function ClubSessions() {
                 <TableRow>
                   <TableCell>Start Time</TableCell>
                   <TableCell>Stakes</TableCell>
+                  <TableCell>Duration</TableCell>
                   <TableCell>Status</TableCell>
                 </TableRow>
               </TableHead>
@@ -173,6 +199,10 @@ function ClubSessions() {
                       {session.details.stakes.bigBlind}
                       {session.details.stakes.ante &&
                         ` (${session.details.stakes.ante} ante)`}
+                    </TableCell>
+                    <TableCell>
+                      {session.status === "close" && 
+                       calculateSessionDuration(session)}
                     </TableCell>
                     <TableCell>
                       <Chip
