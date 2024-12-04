@@ -1,5 +1,10 @@
 @import 'colors';
 
+// At the top of the file
+* {
+  font-family: 'Nunito', sans-serif;
+}
+
 // Global MUI Component Overrides
 .MuiButton-root {
   &.MuiButton-contained {

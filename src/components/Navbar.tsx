@@ -21,10 +21,15 @@ import CasinoIcon from "@mui/icons-material/Casino";
 import HomeIcon from "@mui/icons-material/Home";
 import GroupsIcon from "@mui/icons-material/Groups";
 import { useNavigate, useLocation } from "react-router-dom";
+import styled from "styled-components";
 
 interface NavbarProps {
   onLogout: () => void;
 }
+
+const NavButton = styled.button`
+  padding: 12px 24px;
+`;
 
 const Navbar: React.FC<NavbarProps> = ({ onLogout }) => {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -59,8 +64,16 @@ const Navbar: React.FC<NavbarProps> = ({ onLogout }) => {
           <ListItemText primary={item.text} />
         </ListItemButton>
       ))}
+      <ListItemButton onClick={onLogout}>
+        <ListItemIcon><LogoutIcon /></ListItemIcon>
+        <ListItemText primary="Logout" />
+      </ListItemButton>
     </List>
   );
+
+  const handleLogoClick = () => {
+    navigate("/");
+  };
 
   return (
     <>
@@ -76,8 +89,16 @@ const Navbar: React.FC<NavbarProps> = ({ onLogout }) => {
               <MenuIcon />
             </IconButton>
           )}
-          <Box component="div" sx={{ flexGrow: 1 }}>
-            <img src="/Logo_Horiz.svg" alt="Chiply" style={{ height: '32px' }} />
+          <Box
+            component="div"
+            sx={{ flexGrow: 1, cursor: "pointer" }}
+            onClick={handleLogoClick}
+          >
+            <img
+              src="/Logo_Horiz.svg"
+              alt="Chiply"
+              style={{ height: "32px" }}
+            />
           </Box>
           {!isMobile && (
             <Box sx={{ display: "flex", gap: 2 }}>
@@ -92,6 +113,7 @@ const Navbar: React.FC<NavbarProps> = ({ onLogout }) => {
                       location.pathname === item.path
                         ? "rgba(255, 255, 255, 0.1)"
                         : "transparent",
+                    px: 3,
                   }}
                 >
                   {item.text}
@@ -99,11 +121,13 @@ const Navbar: React.FC<NavbarProps> = ({ onLogout }) => {
               ))}
             </Box>
           )}
-          <Tooltip title="Logout">
-            <IconButton color="inherit" onClick={onLogout} edge="end">
-              <LogoutIcon />
-            </IconButton>
-          </Tooltip>
+          {!isMobile && (
+            <Tooltip title="Logout">
+              <IconButton color="inherit" onClick={onLogout} edge="end">
+                <LogoutIcon />
+              </IconButton>
+            </Tooltip>
+          )}
         </Toolbar>
       </AppBar>
       <Drawer

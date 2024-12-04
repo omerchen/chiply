@@ -98,6 +98,8 @@ function Clubs() {
                   '&:hover': {
                     backgroundColor: 'rgba(103, 58, 183, 0.04)',
                   },
+                  display: 'flex',
+                  alignItems: 'center',
                 }}
               >
                 <ListItemIcon>
@@ -114,7 +116,7 @@ function Clubs() {
                     </Typography>
                   }
                 />
-                <ListItemSecondaryAction>
+                <ListItemSecondaryAction sx={{ height: '100%', display: 'flex', alignItems: 'center' }}>
                   <Chip
                     label={club.role === 'admin' ? 'Admin' : 'Member'}
                     sx={{
@@ -122,7 +124,7 @@ function Clubs() {
                       color: club.role === 'admin' ? 'white' : '#673ab7',
                       borderColor: '#673ab7',
                       border: '1px solid',
-                      fontWeight: 500,
+                      fontWeight: 600,
                     }}
                     size="small"
                     onClick={(e) => {
