@@ -28,6 +28,8 @@ import CashoutForm from '../features/poker-session/components/CashoutManagement'
 import GameSummary from '../features/poker-session/components/SessionSummary';
 import TransactionList from '../features/poker-session/components/TransactionSummary';
 import { Player } from '../types/types';
+import { ref, onValue, off } from 'firebase/database';
+import { db } from '../config/firebase';
 
 interface SessionData {
   players: {
@@ -109,30 +111,35 @@ function ClubSessionDetails() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        console.log('Fetching data for club:', clubId, 'session:', sessionId);
-        const [sessionData, clubData, clubPlayersData] = await Promise.all([
-          readData(`sessions/${sessionId}`),
-          readData(`clubs/${clubId}`),
-          readData('players')
-        ]);
+        console.log('Setting up real-time listeners for club:', clubId, 'session:', sessionId);
         
-        // Initialize session data structure if it doesn't exist
-        const initializedSessionData = {
-          ...sessionData,
-          data: sessionData.data || {
-            players: {},
-            buyins: {},
-            cashouts: {},
-            transactions: {}
-          }
-        };
-        
-        setSession(initializedSessionData);
+        // Set up session listener
+        const sessionRef = ref(db, `sessions/${sessionId}`);
+        const unsubscribeSession = onValue(sessionRef, (snapshot) => {
+          const sessionData = snapshot.val();
+          if (!sessionData) return;
+
+          // Initialize session data structure if it doesn't exist
+          const initializedSessionData = {
+            ...sessionData,
+            data: sessionData.data || {
+              players: {},
+              buyins: {},
+              cashouts: {},
+              transactions: {}
+            }
+          };
+          
+          setSession(initializedSessionData);
+        });
+
+        // Fetch club data (one-time)
+        const clubData = await readData(`clubs/${clubId}`);
         setClubName(clubData.name || '');
         
-        // Get the club's player IDs
+        // Fetch club players (one-time)
         const clubPlayerIds = clubData.players ? Object.keys(clubData.players) : [];
-        console.log('Club player IDs:', clubPlayerIds);
+        const clubPlayersData = await readData('players');
         
         // Filter and map players that belong to the club
         const playersArray = clubPlayersData ? 
@@ -142,11 +149,17 @@ function ClubSessionDetails() {
               id,
               ...data
             })) : [];
-        console.log('Processed club players:', playersArray);
+        
         setClubPlayers(playersArray);
+        setLoading(false);
+
+        // Cleanup function
+        return () => {
+          console.log('Cleaning up real-time listeners');
+          unsubscribeSession();
+        };
       } catch (error) {
-        console.error('Error fetching session details:', error);
-      } finally {
+        console.error('Error setting up real-time listeners:', error);
         setLoading(false);
       }
     };
