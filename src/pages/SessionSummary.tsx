@@ -125,13 +125,13 @@ function SessionSummary() {
 
           // Calculate summaries for each player
           Object.entries(players).forEach(([playerId]) => {
-            const playerBuyins = Object.values(buyins).filter(b => b.playerId === playerId);
+            const playerBuyins = Object.values(buyins).filter((b: typeof buyins[string]) => b.playerId === playerId);
             const buyinsCount = playerBuyins.length;
             
             // Only add players who have at least one buyin
             if (buyinsCount > 0) {
-              const buyinsTotal = playerBuyins.reduce((sum, b) => sum + b.amount, 0);
-              const playerCashout = Object.values(cashouts).find(c => c.playerId === playerId);
+              const buyinsTotal = playerBuyins.reduce((sum, b: typeof buyins[string]) => sum + b.amount, 0) as number;
+              const playerCashout = Object.values(cashouts).find((c: typeof cashouts[string]) => c.playerId === playerId) as typeof cashouts[string] | undefined;
               const stackValue = playerCashout?.stackValue ?? playerCashout?.cashout ?? 0;
               const profit = stackValue - buyinsTotal;
 

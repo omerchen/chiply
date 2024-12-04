@@ -64,10 +64,10 @@ function ClubPlayerDetails() {
         clubId={clubId!} 
         clubName={clubName}
         currentPage={`${player.firstName} ${player.lastName}`}
-        parentPage={{
+        parentPages={[{
           name: "Players",
-          path: `players`
-        }}
+          path: "players"
+        }]}
       />
       <Paper elevation={3} sx={{ p: 4, borderRadius: 2 }}>
         <Typography variant="h5" gutterBottom>

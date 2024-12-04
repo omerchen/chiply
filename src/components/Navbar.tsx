@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import {
   AppBar,
   Toolbar,
@@ -14,13 +14,13 @@ import {
   useTheme,
   useMediaQuery,
   Tooltip,
-} from '@mui/material';
-import MenuIcon from '@mui/icons-material/Menu';
-import LogoutIcon from '@mui/icons-material/Logout';
-import CasinoIcon from '@mui/icons-material/Casino';
-import HomeIcon from '@mui/icons-material/Home';
-import GroupsIcon from '@mui/icons-material/Groups';
-import { useNavigate, useLocation } from 'react-router-dom';
+} from "@mui/material";
+import MenuIcon from "@mui/icons-material/Menu";
+import LogoutIcon from "@mui/icons-material/Logout";
+import CasinoIcon from "@mui/icons-material/Casino";
+import HomeIcon from "@mui/icons-material/Home";
+import GroupsIcon from "@mui/icons-material/Groups";
+import { useNavigate, useLocation } from "react-router-dom";
 
 interface NavbarProps {
   onLogout: () => void;
@@ -29,7 +29,7 @@ interface NavbarProps {
 const Navbar: React.FC<NavbarProps> = ({ onLogout }) => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -38,9 +38,8 @@ const Navbar: React.FC<NavbarProps> = ({ onLogout }) => {
   };
 
   const menuItems = [
-    { text: 'Home', path: '/', icon: <HomeIcon /> },
-    { text: 'Clubs', path: '/clubs', icon: <GroupsIcon /> },
-    { text: 'Session Test', path: '/test', icon: <CasinoIcon /> },
+    { text: "Home", path: "/", icon: <HomeIcon /> },
+    { text: "Clubs", path: "/clubs", icon: <GroupsIcon /> },
   ];
 
   const drawer = (
@@ -65,7 +64,7 @@ const Navbar: React.FC<NavbarProps> = ({ onLogout }) => {
 
   return (
     <>
-      <AppBar position="fixed" sx={{ bgcolor: '#673ab7' }}>
+      <AppBar position="fixed" sx={{ bgcolor: "#673ab7" }}>
         <Toolbar>
           {isMobile && (
             <IconButton
@@ -81,7 +80,7 @@ const Navbar: React.FC<NavbarProps> = ({ onLogout }) => {
             Chiply
           </Typography>
           {!isMobile && (
-            <Box sx={{ display: 'flex', gap: 2 }}>
+            <Box sx={{ display: "flex", gap: 2 }}>
               {menuItems.map((item) => (
                 <Button
                   key={item.text}
@@ -89,7 +88,10 @@ const Navbar: React.FC<NavbarProps> = ({ onLogout }) => {
                   onClick={() => navigate(item.path)}
                   startIcon={item.icon}
                   sx={{
-                    backgroundColor: location.pathname === item.path ? 'rgba(255, 255, 255, 0.1)' : 'transparent',
+                    backgroundColor:
+                      location.pathname === item.path
+                        ? "rgba(255, 255, 255, 0.1)"
+                        : "transparent",
                   }}
                 >
                   {item.text}
@@ -120,4 +122,4 @@ const Navbar: React.FC<NavbarProps> = ({ onLogout }) => {
   );
 };
 
-export default Navbar; 
+export default Navbar;
