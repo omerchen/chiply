@@ -34,10 +34,10 @@ interface ClubBreadcrumbsProps {
   clubId: string;
   clubName: string;
   currentPage?: string;
-  parentPage?: ParentPage;
+  parentPages?: ParentPage[];
 }
 
-function ClubBreadcrumbs({ clubId, clubName, currentPage, parentPage }: ClubBreadcrumbsProps) {
+function ClubBreadcrumbs({ clubId, clubName, currentPage, parentPages }: ClubBreadcrumbsProps) {
   return (
     <Box sx={{ mb: 3, mt: 1 }}>
       <Stack 
@@ -58,52 +58,34 @@ function ClubBreadcrumbs({ clubId, clubName, currentPage, parentPage }: ClubBrea
 
         {currentPage ? (
           <>
-            {parentPage ? (
-              <>
-                <BreadcrumbLink to={`/clubs/${clubId}`}>
-                  {clubName}
-                </BreadcrumbLink>
+            <BreadcrumbLink to={`/clubs/${clubId}`}>
+              {clubName}
+            </BreadcrumbLink>
 
+            {parentPages?.map((parent, index) => (
+              <React.Fragment key={parent.path}>
                 <NavigateNextIcon 
                   sx={{ 
                     color: 'text.secondary',
                     fontSize: 18
                   }} 
                 />
-
-                <BreadcrumbLink to={`/clubs/${clubId}/${parentPage.path}`}>
-                  {parentPage.name}
+                <BreadcrumbLink to={`/clubs/${clubId}/${parent.path}`}>
+                  {parent.name}
                 </BreadcrumbLink>
+              </React.Fragment>
+            ))}
 
-                <NavigateNextIcon 
-                  sx={{ 
-                    color: 'text.secondary',
-                    fontSize: 18
-                  }} 
-                />
+            <NavigateNextIcon 
+              sx={{ 
+                color: 'text.secondary',
+                fontSize: 18
+              }} 
+            />
 
-                <BreadcrumbText variant="body2">
-                  {currentPage}
-                </BreadcrumbText>
-              </>
-            ) : (
-              <>
-                <BreadcrumbLink to={`/clubs/${clubId}`}>
-                  {clubName}
-                </BreadcrumbLink>
-
-                <NavigateNextIcon 
-                  sx={{ 
-                    color: 'text.secondary',
-                    fontSize: 18
-                  }} 
-                />
-
-                <BreadcrumbText variant="body2">
-                  {currentPage}
-                </BreadcrumbText>
-              </>
-            )}
+            <BreadcrumbText variant="body2">
+              {currentPage}
+            </BreadcrumbText>
           </>
         ) : (
           <BreadcrumbText variant="body2">

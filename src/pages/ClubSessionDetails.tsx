@@ -789,26 +789,41 @@ function ClubSessionDetails() {
             </Typography>
           </div>
           {players.length > 0 ? (
-            <Button
-              variant={session.status === "open" ? "contained" : "outlined"}
-              onClick={toggleSessionStatus}
-              disabled={session.status === "open" && moneyInPlay !== 0}
-              sx={{
-                width: { xs: '100%', sm: 'auto' },
-                bgcolor: session.status === "open" ? 'error.main' : 'transparent',
-                color: session.status === "open" ? 'white' : 'success.main',
-                borderColor: session.status === "open" ? undefined : 'success.main',
-                '&:hover': { 
-                  bgcolor: session.status === "open" ? 'error.dark' : 'success.light',
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+              <Button
+                variant={session.status === "open" ? "contained" : "outlined"}
+                onClick={toggleSessionStatus}
+                disabled={session.status === "open" && moneyInPlay !== 0}
+                sx={{
+                  width: { xs: '100%', sm: 'auto' },
+                  bgcolor: session.status === "open" ? 'error.main' : 'transparent',
+                  color: session.status === "open" ? 'white' : 'success.main',
                   borderColor: session.status === "open" ? undefined : 'success.main',
-                },
-                '&.Mui-disabled': {
-                  bgcolor: session.status === "open" ? 'rgba(211, 47, 47, 0.5)' : undefined
-                }
-              }}
-            >
-              {session.status === "open" ? "Close Session" : "Reopen Session"}
-            </Button>
+                  '&:hover': { 
+                    bgcolor: session.status === "open" ? 'error.dark' : 'success.light',
+                    borderColor: session.status === "open" ? undefined : 'success.main',
+                  },
+                  '&.Mui-disabled': {
+                    bgcolor: session.status === "open" ? 'rgba(211, 47, 47, 0.5)' : undefined
+                  }
+                }}
+              >
+                {session.status === "open" ? "Close Session" : "Reopen Session"}
+              </Button>
+              {session.status === "close" && (
+                <Button
+                  variant="contained"
+                  onClick={() => navigate(`/clubs/${clubId}/sessions/${sessionId}/summary`)}
+                  sx={{
+                    width: { xs: '100%', sm: 'auto' },
+                    bgcolor: '#673ab7',
+                    '&:hover': { bgcolor: '#563098' }
+                  }}
+                >
+                  View Summary
+                </Button>
+              )}
+            </Stack>
           ) : (
             <Button
               variant="contained"
