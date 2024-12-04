@@ -1,9 +1,14 @@
 import React from "react";
-import { createBrowserRouter, RouterProvider, Navigate, Outlet } from "react-router-dom";
+import {
+  createBrowserRouter,
+  RouterProvider,
+  Navigate,
+  Outlet,
+} from "react-router-dom";
 import { Container, Paper } from "@mui/material";
 import { Player, Buyin } from "./types/types";
 import "./styles/main.scss";
-import Navbar from './components/Navbar';
+import Navbar from "./components/Navbar";
 import { clearUserFromStorage, getUserFromStorage } from "./services/auth";
 import Login from "./pages/Login";
 import Home from "./pages/Home";
@@ -24,11 +29,14 @@ import NewClubSession from "./pages/NewClubSession";
 import ClubSessionDetails from "./pages/ClubSessionDetails";
 
 function SessionPage() {
-  console.log('Rendering SessionPage');
+  console.log("Rendering SessionPage");
   const [players, setPlayers] = React.useState<Player[]>([]);
 
   const addPlayer = (name: string) => {
-    setPlayers([...players, { id: crypto.randomUUID(), name, buyins: [], cashout: null }]);
+    setPlayers([
+      ...players,
+      { id: crypto.randomUUID(), name, buyins: [], cashout: null },
+    ]);
   };
 
   const removePlayer = (id: string) => {
@@ -63,7 +71,9 @@ function SessionPage() {
         if (player.id === playerId) {
           return {
             ...player,
-            buyins: player.buyins.filter((buyin: Buyin) => buyin.id !== buyinId),
+            buyins: player.buyins.filter(
+              (buyin: Buyin) => buyin.id !== buyinId
+            ),
           };
         }
         return player;
@@ -112,9 +122,7 @@ function SessionPage() {
   };
 
   const resetAllCashouts = () => {
-    setPlayers(
-      players.map((player) => ({ ...player, cashout: null }))
-    );
+    setPlayers(players.map((player) => ({ ...player, cashout: null })));
   };
 
   return (
@@ -147,7 +155,7 @@ function SessionPage() {
 function Layout({ children }: { children?: React.ReactNode }) {
   const handleLogout = () => {
     clearUserFromStorage();
-    window.location.href = '/login';
+    window.location.href = "/login";
   };
 
   return (
@@ -159,7 +167,9 @@ function Layout({ children }: { children?: React.ReactNode }) {
 }
 
 function App() {
-  const [isAuthenticated, setIsAuthenticated] = React.useState<boolean | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = React.useState<boolean | null>(
+    null
+  );
 
   React.useEffect(() => {
     const checkAuth = () => {
@@ -168,22 +178,22 @@ function App() {
     };
 
     checkAuth();
-    window.addEventListener('storage', checkAuth);
-    
+    window.addEventListener("storage", checkAuth);
+
     return () => {
-      window.removeEventListener('storage', checkAuth);
+      window.removeEventListener("storage", checkAuth);
     };
   }, []);
 
   React.useEffect(() => {
     const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'chiply_user') {
+      if (e.key === "chiply_user") {
         setIsAuthenticated(!!e.newValue);
       }
     };
 
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
+    window.addEventListener("storage", handleStorageChange);
+    return () => window.removeEventListener("storage", handleStorageChange);
   }, []);
 
   if (isAuthenticated === null) {
@@ -198,7 +208,13 @@ function App() {
     {
       path: "/",
       element: isAuthenticated ? <Layout /> : <Navigate to="/login" />,
-      errorElement: isAuthenticated ? <Layout><ErrorPage /></Layout> : <Navigate to="/login" />,
+      errorElement: isAuthenticated ? (
+        <Layout>
+          <ErrorPage />
+        </Layout>
+      ) : (
+        <Navigate to="/login" />
+      ),
       children: [
         {
           index: true,
@@ -210,31 +226,59 @@ function App() {
         },
         {
           path: "clubs/:clubId",
-          element: <ClubProtectedRoute><ClubDetails /></ClubProtectedRoute>,
+          element: (
+            <ClubProtectedRoute>
+              <ClubDetails />
+            </ClubProtectedRoute>
+          ),
         },
         {
           path: "clubs/:clubId/players",
-          element: <ClubProtectedRoute><ClubPlayers /></ClubProtectedRoute>,
+          element: (
+            <ClubProtectedRoute>
+              <ClubPlayers />
+            </ClubProtectedRoute>
+          ),
         },
         {
           path: "clubs/:clubId/sessions",
-          element: <ClubProtectedRoute><ClubSessions /></ClubProtectedRoute>,
+          element: (
+            <ClubProtectedRoute>
+              <ClubSessions />
+            </ClubProtectedRoute>
+          ),
         },
         {
           path: "clubs/:clubId/sessions/:sessionId",
-          element: <ClubProtectedRoute><ClubSessionDetails /></ClubProtectedRoute>,
+          element: (
+            <ClubProtectedRoute>
+              <ClubSessionDetails />
+            </ClubProtectedRoute>
+          ),
         },
         {
           path: "clubs/:clubId/newSession",
-          element: <ClubProtectedRoute><NewClubSession /></ClubProtectedRoute>,
+          element: (
+            <ClubProtectedRoute>
+              <NewClubSession />
+            </ClubProtectedRoute>
+          ),
         },
         {
           path: "clubs/:clubId/newPlayer",
-          element: <ClubProtectedRoute><NewClubPlayer /></ClubProtectedRoute>,
+          element: (
+            <ClubProtectedRoute>
+              <NewClubPlayer />
+            </ClubProtectedRoute>
+          ),
         },
         {
           path: "clubs/:clubId/players/:playerId",
-          element: <ClubProtectedRoute><ClubPlayerDetails /></ClubProtectedRoute>,
+          element: (
+            <ClubProtectedRoute>
+              <ClubPlayerDetails />
+            </ClubProtectedRoute>
+          ),
         },
         {
           path: "test",

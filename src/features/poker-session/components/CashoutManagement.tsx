@@ -11,15 +11,14 @@ import {
   Select,
   MenuItem,
   Box,
-  Checkbox,
   FormControlLabel,
-  FormGroup,
   Stack,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogContentText,
   DialogActions,
+  Switch,
 } from "@mui/material";
 import { Player, SessionDetails } from "../../../types/types";
 import { formatMoney } from "../../../utils/formatters";
@@ -30,6 +29,7 @@ interface CashoutFormProps {
   onCashout: (playerId: string, amount: number) => void;
   onResetPlayerCashout: (playerId: string) => void;
   onResetAllCashouts: () => void;
+  isSessionClosed?: boolean;
 }
 
 function CashoutForm({
@@ -38,6 +38,7 @@ function CashoutForm({
   onCashout,
   onResetPlayerCashout,
   onResetAllCashouts,
+  isSessionClosed,
 }: CashoutFormProps) {
   const [selectedPlayerId, setSelectedPlayerId] = useState("");
   const [amount, setAmount] = useState("");
@@ -116,78 +117,63 @@ function CashoutForm({
         Cashouts
       </Typography>
 
-      <form onSubmit={handleSubmit}>
-        <Stack spacing={2}>
-          <FormControl fullWidth>
+      <form onSubmit={handleSubmit} className="form-row">
+        <Stack direction="row" spacing={2} sx={{ mb: 3 }}>
+          <FormControl sx={{ minWidth: 200 }} size="small">
             <InputLabel>Player</InputLabel>
             <Select
               value={selectedPlayerId}
               onChange={(e) => setSelectedPlayerId(e.target.value)}
               label="Player"
+              disabled={isSessionClosed}
             >
-              {playersWithBuyins.map((player) => (
-                <MenuItem
-                  key={player.id}
-                  value={player.id}
-                  disabled={player.cashout !== null}
-                >
-                  {player.name}
-                </MenuItem>
-              ))}
+              {players
+                .filter((player) => !player.cashout)
+                .map((player) => (
+                  <MenuItem key={player.id} value={player.id}>
+                    {player.name}
+                  </MenuItem>
+                ))}
             </Select>
           </FormControl>
 
-          <FormGroup>
-            <FormControlLabel
-              control={
-                <Checkbox
-                  checked={isMiscalculation}
-                  onChange={(e) => setIsMiscalculation(e.target.checked)}
-                />
-              }
-              label="Money miscalculation"
-            />
-          </FormGroup>
+          <TextField
+            type="number"
+            label="Amount"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            size="small"
+            inputProps={{ step: "0.5" }}
+            disabled={isSessionClosed}
+          />
 
-          {isMiscalculation ? (
-            <>
-              <TextField
-                label="Stack Value"
-                type="number"
-                value={stackValue}
-                onChange={(e) => setStackValue(e.target.value)}
-                inputProps={{ step: "0.5" }}
-                fullWidth
-              />
-              <TextField
-                label="Actual Cashout"
-                type="number"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                inputProps={{ step: "0.5" }}
-                fullWidth
-              />
-            </>
-          ) : (
+          {isMiscalculation && (
             <TextField
-              label="Amount"
               type="number"
-              value={amount}
-              onChange={(e) => {
-                setAmount(e.target.value);
-                setStackValue(e.target.value);
-              }}
+              label="Stack Value"
+              value={stackValue}
+              onChange={(e) => setStackValue(e.target.value)}
+              size="small"
               inputProps={{ step: "0.5" }}
-              fullWidth
+              disabled={isSessionClosed}
             />
           )}
+
+          <FormControlLabel
+            control={
+              <Switch
+                checked={isMiscalculation}
+                onChange={(e) => setIsMiscalculation(e.target.checked)}
+                disabled={isSessionClosed}
+              />
+            }
+            label="Miscalculation"
+          />
 
           <Button
             type="submit"
             variant="contained"
-            disabled={
-              !selectedPlayerId || !amount || (isMiscalculation && !stackValue)
-            }
+            disabled={!selectedPlayerId || !amount || isSessionClosed}
             sx={{
               bgcolor: "#673ab7",
               "&:hover": { bgcolor: "#563098" },
@@ -199,17 +185,14 @@ function CashoutForm({
       </form>
 
       <List>
-        {playersWithBuyins.map((player) => {
+        {players.map((player) => {
           const totalBuyins = player.buyins.reduce(
             (sum, buyin) => sum + buyin.amount,
             0
           );
-
-          // Find the cashout entry for this player
           const playerCashout = Object.values(
             session?.data?.cashouts || {}
           ).find((cashout) => cashout.playerId === player.id);
-
           const profit = playerCashout
             ? playerCashout.cashout - totalBuyins
             : null;
@@ -240,6 +223,7 @@ function CashoutForm({
                   }
                   variant="contained"
                   disableElevation
+                  disabled={isSessionClosed}
                   sx={{
                     ml: 1,
                     textTransform: "none",
@@ -257,24 +241,23 @@ function CashoutForm({
         })}
       </List>
 
-      {playersWithBuyins.some((player) => player.cashout !== null) && (
-        <Box sx={{ mt: 2 }}>
-          <Button
-            onClick={handleResetAllCashouts}
-            variant="contained"
-            disableElevation
-            sx={{
-              textTransform: "none",
-              backgroundColor: "rgb(211, 47, 47) !important",
-              "&:hover": {
-                backgroundColor: "rgb(154, 0, 7) !important",
-              },
-            }}
-          >
-            Reset All Cashouts
-          </Button>
-        </Box>
-      )}
+      <Box sx={{ mt: 2 }}>
+        <Button
+          onClick={handleResetAllCashouts}
+          variant="contained"
+          disableElevation
+          disabled={isSessionClosed}
+          sx={{
+            textTransform: "none",
+            backgroundColor: "rgb(211, 47, 47) !important",
+            "&:hover": {
+              backgroundColor: "rgb(154, 0, 7) !important",
+            },
+          }}
+        >
+          Reset All Cashouts
+        </Button>
+      </Box>
 
       <Dialog open={resetDialogOpen} onClose={handleCloseResetDialog}>
         <DialogTitle>Confirm Reset Cashout</DialogTitle>

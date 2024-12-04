@@ -56,6 +56,7 @@ interface BuyinFormProps {
     timestamp: number,
     isPayBox: boolean
   ) => void;
+  isSessionClosed?: boolean;
 }
 
 type Order = 'asc' | 'desc';
@@ -69,7 +70,7 @@ interface BuyinData {
   isPayBox: boolean;
 }
 
-function BuyinForm({ players, onBuyin, onRemoveBuyin, onEditBuyin }: BuyinFormProps) {
+function BuyinForm({ players, onBuyin, onRemoveBuyin, onEditBuyin, isSessionClosed }: BuyinFormProps) {
   const [selectedPlayerId, setSelectedPlayerId] = useState("");
   const [amount, setAmount] = useState("");
   const [isPayBox, setIsPayBox] = useState(false);
@@ -200,6 +201,7 @@ function BuyinForm({ players, onBuyin, onRemoveBuyin, onEditBuyin }: BuyinFormPr
               value={selectedPlayerId}
               onChange={(e) => setSelectedPlayerId(e.target.value)}
               label="Player"
+              disabled={isSessionClosed}
             >
               {players.map((player) => (
                 <MenuItem key={player.id} value={player.id}>
@@ -216,6 +218,7 @@ function BuyinForm({ players, onBuyin, onRemoveBuyin, onEditBuyin }: BuyinFormPr
             onChange={(e) => setAmount(e.target.value)}
             size="small"
             inputProps={{ step: "0.5" }}
+            disabled={isSessionClosed}
           />
 
           <FormControlLabel
@@ -223,6 +226,7 @@ function BuyinForm({ players, onBuyin, onRemoveBuyin, onEditBuyin }: BuyinFormPr
               <Switch
                 checked={isPayBox}
                 onChange={(e) => setIsPayBox(e.target.checked)}
+                disabled={isSessionClosed}
               />
             }
             label="PayBox"
@@ -231,7 +235,7 @@ function BuyinForm({ players, onBuyin, onRemoveBuyin, onEditBuyin }: BuyinFormPr
           <Button
             type="submit"
             variant="contained"
-            disabled={!selectedPlayerId || !amount}
+            disabled={!selectedPlayerId || !amount || isSessionClosed}
             sx={{
               bgcolor: '#673ab7',
               '&:hover': { bgcolor: '#563098' }
@@ -388,12 +392,14 @@ function BuyinForm({ players, onBuyin, onRemoveBuyin, onEditBuyin }: BuyinFormPr
                   <IconButton
                     size="small"
                     onClick={() => handleEditClick(buyin)}
+                    disabled={isSessionClosed}
                   >
                     <EditIcon fontSize="small" />
                   </IconButton>
                   <IconButton
                     size="small"
                     onClick={() => onRemoveBuyin(buyin.playerId, buyin.id)}
+                    disabled={isSessionClosed}
                   >
                     <DeleteIcon fontSize="small" />
                   </IconButton>
@@ -420,6 +426,7 @@ function BuyinForm({ players, onBuyin, onRemoveBuyin, onEditBuyin }: BuyinFormPr
               size="small"
               fullWidth
               inputProps={{ step: "0.5" }}
+              disabled={isSessionClosed}
             />
             <LocalizationProvider dateAdapter={AdapterDayjs}>
               <ThemeProvider theme={theme}>
@@ -429,6 +436,7 @@ function BuyinForm({ players, onBuyin, onRemoveBuyin, onEditBuyin }: BuyinFormPr
                   onChange={(newValue) => setEditDateTime(newValue)}
                   format="DD/MM/YYYY HH:mm"
                   ampm={false}
+                  disabled={isSessionClosed}
                   slotProps={{
                     textField: {
                       size: "small",
@@ -453,6 +461,7 @@ function BuyinForm({ players, onBuyin, onRemoveBuyin, onEditBuyin }: BuyinFormPr
                 <Switch
                   checked={editIsPayBox}
                   onChange={(e) => setEditIsPayBox(e.target.checked)}
+                  disabled={isSessionClosed}
                 />
               }
               label="PayBox"
@@ -464,6 +473,7 @@ function BuyinForm({ players, onBuyin, onRemoveBuyin, onEditBuyin }: BuyinFormPr
           <Button 
             onClick={handleEditConfirm} 
             variant="contained"
+            disabled={isSessionClosed}
             sx={{
               bgcolor: '#673ab7',
               '&:hover': { bgcolor: '#563098' }

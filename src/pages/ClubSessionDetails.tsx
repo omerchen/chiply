@@ -20,7 +20,7 @@ import {
   DialogContentText,
   DialogActions
 } from '@mui/material';
-import { readData, updateData } from '../services/database';
+import { readData, updateData, writeData } from '../services/database';
 import ClubBreadcrumbs from '../components/ClubBreadcrumbs';
 import PlayerList from '../features/poker-session/components/PlayerManagement';
 import BuyinForm from '../features/poker-session/components/BuyinManagement';
@@ -104,6 +104,7 @@ function ClubSessionDetails() {
     playerName: string,
     amount: number 
   } | null>(null);
+  const [reopenDialogOpen, setReopenDialogOpen] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -595,6 +596,81 @@ function ClubSessionDetails() {
     setResetAllDialogOpen(false);
   };
 
+  const handleReopenClick = () => {
+    setReopenDialogOpen(true);
+  };
+
+  const handleConfirmReopen = async () => {
+    if (!session) return;
+    
+    const timestamp = Date.now();
+    
+    try {
+      const updates = {
+        [`sessions/${sessionId}/status`]: "open",
+        [`sessions/${sessionId}/details/closedAt`]: null
+      };
+      
+      await updateData('/', updates);
+      
+      setSession(prev => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          status: "open",
+          details: {
+            ...prev.details,
+            closedAt: null
+          }
+        };
+      });
+    } catch (error) {
+      console.error('Error reopening session:', error);
+    } finally {
+      setReopenDialogOpen(false);
+    }
+  };
+
+  const toggleSessionStatus = async () => {
+    if (!session) return;
+    
+    // Can only close session if money in play is 0
+    if (session.status === "open" && moneyInPlay !== 0) {
+      return;
+    }
+
+    // If session is closed, show reopen dialog
+    if (session.status === "close") {
+      handleReopenClick();
+      return;
+    }
+
+    const timestamp = Date.now();
+    
+    try {
+      const updates = {
+        [`sessions/${sessionId}/status`]: "close",
+        [`sessions/${sessionId}/details/closedAt`]: timestamp
+      };
+      
+      await updateData('/', updates);
+      
+      setSession(prev => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          status: "close",
+          details: {
+            ...prev.details,
+            closedAt: timestamp
+          }
+        };
+      });
+    } catch (error) {
+      console.error('Error updating session status:', error);
+    }
+  };
+
   if (loading) {
     return (
       <Container sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
@@ -635,16 +711,39 @@ function ClubSessionDetails() {
         }}
       />
       <Paper elevation={3} sx={{ p: 4, borderRadius: 2 }}>
-        <Typography variant="h5" gutterBottom>
-          Session Details
-        </Typography>
-        <Typography color="text.secondary">
-          Started: {new Date(session.details.startTime).toLocaleString()}
-        </Typography>
-        <Typography color="text.secondary" gutterBottom>
-          Stakes: {session.details.stakes.smallBlind}/{session.details.stakes.bigBlind}
-          {session.details.stakes.ante && ` (${session.details.stakes.ante} ante)`}
-        </Typography>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+          <div>
+            <Typography variant="h5" gutterBottom>
+              Session Details
+            </Typography>
+            <Typography color="text.secondary">
+              Started: {new Date(session.details.startTime).toLocaleString()}
+            </Typography>
+            <Typography color="text.secondary" gutterBottom>
+              Stakes: {session.details.stakes.smallBlind}/{session.details.stakes.bigBlind}
+              {session.details.stakes.ante && ` (${session.details.stakes.ante} ante)`}
+            </Typography>
+          </div>
+          <Button
+            variant={session.status === "open" ? "contained" : "outlined"}
+            onClick={toggleSessionStatus}
+            disabled={session.status === "open" && moneyInPlay !== 0}
+            sx={{
+              bgcolor: session.status === "open" ? 'error.main' : 'transparent',
+              color: session.status === "open" ? 'white' : 'success.main',
+              borderColor: session.status === "open" ? undefined : 'success.main',
+              '&:hover': { 
+                bgcolor: session.status === "open" ? 'error.dark' : 'success.light',
+                borderColor: session.status === "open" ? undefined : 'success.main',
+              },
+              '&.Mui-disabled': {
+                bgcolor: session.status === "open" ? 'rgba(211, 47, 47, 0.5)' : undefined
+              }
+            }}
+          >
+            {session.status === "open" ? "Close Session" : "Reopen Session"}
+          </Button>
+        </Box>
 
         <Divider sx={{ my: 3 }} />
 
@@ -659,6 +758,7 @@ function ClubSessionDetails() {
                       value={selectedPlayerId}
                       onChange={(e) => setSelectedPlayerId(e.target.value)}
                       label="Add Player"
+                      disabled={session.status === "close"}
                     >
                       {availablePlayers.map((player) => (
                         <MenuItem key={player.id} value={player.id}>
@@ -672,7 +772,7 @@ function ClubSessionDetails() {
                   <Button
                     variant="contained"
                     onClick={addPlayer}
-                    disabled={!selectedPlayerId}
+                    disabled={!selectedPlayerId || session.status === "close"}
                     sx={{
                       bgcolor: '#673ab7',
                       '&:hover': { bgcolor: '#563098' }
@@ -687,6 +787,7 @@ function ClubSessionDetails() {
             <PlayerList
               players={players}
               onRemovePlayer={handleRemovePlayer}
+              isSessionClosed={session.status === "close"}
             />
           </Grid>
 
@@ -696,6 +797,7 @@ function ClubSessionDetails() {
               onBuyin={addBuyin}
               onRemoveBuyin={handleRemoveBuyin}
               onEditBuyin={editBuyin}
+              isSessionClosed={session.status === "close"}
             />
           </Grid>
 
@@ -706,6 +808,7 @@ function ClubSessionDetails() {
               onCashout={setCashout}
               onResetPlayerCashout={resetPlayerCashout}
               onResetAllCashouts={resetAllCashouts}
+              isSessionClosed={session.status === "close"}
             />
           </Grid>
 
@@ -872,6 +975,33 @@ function ClubSessionDetails() {
             }}
           >
             Remove Buyin
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={reopenDialogOpen}
+        onClose={() => setReopenDialogOpen(false)}
+      >
+        <DialogTitle>Confirm Reopen Session</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Are you sure you want to reopen this session? This will allow players to continue playing and making transactions.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setReopenDialogOpen(false)} color="inherit">
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleConfirmReopen}
+            variant="contained"
+            sx={{
+              bgcolor: 'success.main',
+              '&:hover': { bgcolor: 'success.dark' }
+            }}
+          >
+            Reopen Session
           </Button>
         </DialogActions>
       </Dialog>

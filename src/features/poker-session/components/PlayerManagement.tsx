@@ -14,9 +14,10 @@ interface PlayerListProps {
   players: Player[];
   onRemovePlayer: (id: string) => void;
   onAddPlayer?: (name: string) => void;
+  isSessionClosed?: boolean;
 }
 
-function PlayerList({ players, onRemovePlayer, onAddPlayer }: PlayerListProps) {
+function PlayerList({ players, onRemovePlayer, onAddPlayer, isSessionClosed }: PlayerListProps) {
   return (
     <div>
       <Typography variant="h5" gutterBottom>
@@ -31,7 +32,7 @@ function PlayerList({ players, onRemovePlayer, onAddPlayer }: PlayerListProps) {
               <IconButton
                 edge="end"
                 onClick={() => onRemovePlayer(player.id)}
-                disabled={player.buyins.length > 0}
+                disabled={player.buyins.length > 0 || isSessionClosed}
               >
                 <DeleteIcon />
               </IconButton>
