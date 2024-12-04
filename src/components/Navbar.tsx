@@ -76,9 +76,9 @@ const Navbar: React.FC<NavbarProps> = ({ onLogout }) => {
               <MenuIcon />
             </IconButton>
           )}
-          <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-            Chiply
-          </Typography>
+          <Box component="div" sx={{ flexGrow: 1 }}>
+            <img src="/Logo_Horiz.svg" alt="Chiply" style={{ height: '32px' }} />
+          </Box>
           {!isMobile && (
             <Box sx={{ display: "flex", gap: 2 }}>
               {menuItems.map((item) => (

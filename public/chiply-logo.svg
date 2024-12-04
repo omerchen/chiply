@@ -1,29 +1,6 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <!-- Main circle (poker chip) -->
-  <circle cx="256" cy="256" r="240" fill="#673ab7"/>
-  
-  <!-- Inner decorative rings -->
-  <circle cx="256" cy="256" r="200" stroke="white" stroke-width="8" stroke-opacity="0.3"/>
-  <circle cx="256" cy="256" r="160" stroke="white" stroke-width="8" stroke-opacity="0.3"/>
-  
-  <!-- Decorative dots around the edge -->
-  <circle cx="256" cy="16" r="12" fill="white" fill-opacity="0.8"/>
-  <circle cx="256" cy="496" r="12" fill="white" fill-opacity="0.8"/>
-  <circle cx="16" cy="256" r="12" fill="white" fill-opacity="0.8"/>
-  <circle cx="496" cy="256" r="12" fill="white" fill-opacity="0.8"/>
-  
-  <!-- Diagonal dots -->
-  <circle cx="96" cy="96" r="12" fill="white" fill-opacity="0.8"/>
-  <circle cx="416" cy="416" r="12" fill="white" fill-opacity="0.8"/>
-  <circle cx="96" cy="416" r="12" fill="white" fill-opacity="0.8"/>
-  <circle cx="416" cy="96" r="12" fill="white" fill-opacity="0.8"/>
-  
-  <!-- Letter C in the middle -->
-  <path
-    d="M320 176C320 176 280 156 240 156C200 156 160 176 160 256C160 336 200 356 240 356C280 356 320 336 320 336"
-    stroke="white"
-    stroke-width="32"
-    stroke-linecap="round"
-  />
-</svg> 
+<svg width="259" height="256" viewBox="0 0 259 256" fill="none" xmlns="http://www.w3.org/2000/svg">
+<circle cx="129.5" cy="129.5" r="122.5" fill="#673AB7"/>
+<circle cx="129.5" cy="129.5" r="122.5" fill="#673AB7"/>
+<path fill-rule="evenodd" clip-rule="evenodd" d="M205.684 134.27C207.04 146.039 204.145 158.339 194.767 170.75L238.748 199.065C221.505 226.088 194.512 246.285 162.726 254.698L151.232 211H109.498L98.2846 255.213C66.3178 247.302 39.0339 227.516 21.3825 200.806L64.5959 172.442C64.2007 171.988 63.8155 171.515 63.4411 171.025C53.7719 158.355 50.8736 145.798 52.372 133.8L0.173988 136.271C0.0584705 134.029 0 131.771 0 129.5C0 98.0859 11.1855 69.2842 29.7911 46.8606L78.4892 87.4029C86.662 78.9374 95.6496 71.4114 103.784 65.1375L81.9607 9.00423C96.6786 3.19283 112.716 0 129.5 0C145.954 0 161.692 3.06873 176.171 8.66509L154.217 65.1375C162.569 71.5803 171.822 79.3434 180.169 88.0884L230.174 48.0376C248.201 70.2879 259 98.6328 259 129.5C259 132.285 258.912 135.049 258.739 137.791L205.684 134.27Z" fill="#341C5E"/>
+<path fill-rule="evenodd" clip-rule="evenodd" d="M129 198H117L120.5 183.5L123.5 162.5C121.5 170 88 183.5 73.5 164.5C41.1011 122.046 98.4996 81.0971 121.067 64.9972C124.964 62.2171 127.822 60.178 129 59C130.178 60.178 133.036 62.2171 136.933 64.9972C159.5 81.0971 216.899 122.046 184.5 164.5C170 183.5 136.5 170 134.5 162.5L137.5 183.5L141 198H129Z" fill="white"/>
+</svg>
