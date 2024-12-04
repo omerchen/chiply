@@ -144,6 +144,7 @@ function SessionPage() {
           onCashout={setCashout}
           onResetPlayerCashout={resetPlayerCashout}
           onResetAllCashouts={resetAllCashouts}
+          isSessionClosed={false}
         />
         <GameSummary players={players} />
         <TransactionList players={players} />
