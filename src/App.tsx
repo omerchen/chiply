@@ -64,6 +64,14 @@ function App() {
               }
             />
             <Route
+              path=":clubId/newPlayer"
+              element={
+                <ClubProtectedRoute>
+                  <NewClubPlayer />
+                </ClubProtectedRoute>
+              }
+            />
+            <Route
               path=":clubId/players/:playerId"
               element={
                 <ClubProtectedRoute>
@@ -81,6 +89,14 @@ function App() {
             />
             <Route
               path=":clubId/sessions/new"
+              element={
+                <ClubProtectedRoute>
+                  <NewClubSession />
+                </ClubProtectedRoute>
+              }
+            />
+            <Route
+              path=":clubId/newSession"
               element={
                 <ClubProtectedRoute>
                   <NewClubSession />
