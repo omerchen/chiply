@@ -17,7 +17,7 @@ export interface User {
       role: "admin" | "member";
     };
   };
-  disabledAt: Date | null;
+  disabledAt: number | null;
 }
 
 interface FirebaseUser {

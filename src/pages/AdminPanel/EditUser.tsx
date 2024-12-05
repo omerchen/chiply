@@ -92,7 +92,7 @@ const EditUser: React.FC = () => {
           const selectedClubsList = Object.entries(userData.clubs || {}).map(([clubId, clubData]) => ({
             id: clubId,
             name: clubsList.find(c => c.id === clubId)?.name || '',
-            role: clubData.role
+            role: (clubData as { role: 'admin' | 'member' }).role
           }));
           setSelectedClubs(selectedClubsList);
         }

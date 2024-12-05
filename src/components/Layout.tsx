@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from 'react';
-import { Outlet, useNavigate } from 'react-router-dom';
-import Navbar from './Navbar';
-import { clearUserFromStorage, getCurrentUser } from '../services/auth';
-import { User } from '../types/User';
-import { CircularProgress, Box } from '@mui/material';
+import React, { useEffect, useState } from "react";
+import { Outlet, useNavigate } from "react-router-dom";
+import Navbar from "./Navbar";
+import { clearUserFromStorage, getCurrentUser } from "../services/auth";
+import { User } from "../types/User";
+import { CircularProgress, Box } from "@mui/material";
 
 function Layout() {
   const [user, setUser] = useState<User | null>(null);
@@ -15,13 +15,13 @@ function Layout() {
       try {
         const userData = await getCurrentUser();
         if (!userData) {
-          navigate('/login');
+          navigate("/login");
           return;
         }
         setUser(userData);
       } catch (error) {
-        console.error('Error fetching user:', error);
-        navigate('/login');
+        console.error("Error fetching user:", error);
+        navigate("/login");
       } finally {
         setLoading(false);
       }
@@ -37,7 +37,12 @@ function Layout() {
 
   if (loading) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
+      <Box
+        display="flex"
+        justifyContent="center"
+        alignItems="center"
+        minHeight="100vh"
+      >
         <CircularProgress />
       </Box>
     );
@@ -53,4 +58,4 @@ function Layout() {
   );
 }
 
-export default Layout; 
+export default Layout;
