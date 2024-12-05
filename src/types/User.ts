@@ -1,4 +1,13 @@
-interface User {
+export interface User {
     id: string;
-    // ... other existing properties
+    email: string;
+    firstName: string;
+    lastName: string;
+    systemRole: 'admin' | 'member';
+    disabledAt?: number | null;
+    clubs: {
+        [key: string]: {
+            role: "admin" | "member";
+        };
+    };
 } 

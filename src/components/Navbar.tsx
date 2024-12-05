@@ -20,18 +20,21 @@ import LogoutIcon from "@mui/icons-material/Logout";
 import CasinoIcon from "@mui/icons-material/Casino";
 import HomeIcon from "@mui/icons-material/Home";
 import GroupsIcon from "@mui/icons-material/Groups";
+import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import { useNavigate, useLocation } from "react-router-dom";
 import styled from "styled-components";
+import { User } from "../types/User";
 
 interface NavbarProps {
   onLogout: () => void;
+  user: User;
 }
 
 const NavButton = styled.button`
   padding: 12px 24px;
 `;
 
-const Navbar: React.FC<NavbarProps> = ({ onLogout }) => {
+const Navbar: React.FC<NavbarProps> = ({ onLogout, user }) => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
@@ -45,6 +48,7 @@ const Navbar: React.FC<NavbarProps> = ({ onLogout }) => {
   const menuItems = [
     { text: "Home", path: "/", icon: <HomeIcon /> },
     { text: "Clubs", path: "/clubs", icon: <GroupsIcon /> },
+    ...(user.systemRole === 'admin' ? [{ text: "Admin Panel", path: "/admin", icon: <AdminPanelSettingsIcon /> }] : []),
   ];
 
   const drawer = (

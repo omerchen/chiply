@@ -14,7 +14,11 @@ import Login from "./pages/Login";
 import ErrorPage from "./pages/ErrorPage";
 import ProtectedRoute from "./components/ProtectedRoute";
 import ClubProtectedRoute from "./components/ClubProtectedRoute";
+import AdminProtectedRoute from "./components/AdminProtectedRoute";
 import SessionSummary from "./pages/SessionSummary";
+import AdminPanel from "./pages/AdminPanel/index";
+import AdminClubs from "./pages/AdminPanel/AdminClubs";
+import AdminUsers from "./pages/AdminPanel/AdminUsers";
 
 function App() {
   return (
@@ -30,6 +34,18 @@ function App() {
           }
         >
           <Route index element={<Home />} />
+          <Route
+            path="admin/*"
+            element={
+              <AdminProtectedRoute>
+                <Routes>
+                  <Route index element={<AdminPanel />} />
+                  <Route path="clubs" element={<AdminClubs />} />
+                  <Route path="users" element={<AdminUsers />} />
+                </Routes>
+              </AdminProtectedRoute>
+            }
+          />
           <Route path="clubs">
             <Route
               index

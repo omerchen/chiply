@@ -11,28 +11,33 @@ export interface User {
   email: string;
   firstName: string;
   lastName: string;
+  systemRole: 'admin' | 'member';
   clubs: {
     [key: string]: {
       role: "admin" | "member";
     };
   };
+  disabledAt: Date | null;
 }
 
 interface FirebaseUser {
   firstName: string;
   lastName: string;
+  systemRole: 'admin' | 'member';
   clubs?: {
     [key: string]: {
       role: "admin" | "member";
     };
   };
+  disabledAt: Date | null;
 }
 
 function isFirebaseUser(data: unknown): data is FirebaseUser {
   const user = data as FirebaseUser;
   return (
     typeof user?.firstName === 'string' &&
-    typeof user?.lastName === 'string'
+    typeof user?.lastName === 'string' &&
+    (user?.systemRole === 'admin' || user?.systemRole === 'member')
   );
 }
 
@@ -73,10 +78,18 @@ export const getCurrentUser = async (): Promise<User | null> => {
       return null;
     }
 
+    if (userData.disabledAt) {
+      clearUserFromStorage();
+      window.location.href = "/login?error=account_disabled";
+      return null;
+    }
+
     return {
       ...userData,
       id: storedUser.id,
       email: authUser.email,
+      systemRole: userData.systemRole || 'member',
+      disabledAt: userData.disabledAt || null,
       clubs: userData.clubs || {}
     };
   } catch (error) {
@@ -101,11 +114,17 @@ export const login = async (email: string, password: string): Promise<User> => {
       throw new Error('Invalid user data format. Please contact an administrator.');
     }
 
+    if (userData.disabledAt) {
+      throw new Error('This account has been disabled. Please contact an administrator.');
+    }
+
     const user: User = {
       id: uid,
       email: userCredential.user.email!,
       firstName: userData.firstName,
       lastName: userData.lastName,
+      systemRole: userData.systemRole || 'member',
+      disabledAt: userData.disabledAt || null,
       clubs: userData.clubs || {}
     };
 
@@ -134,6 +153,7 @@ export const createUserData = async (
   userData: {
     firstName: string;
     lastName: string;
+    systemRole?: 'admin' | 'member';
     clubs?: {
       [key: string]: {
         role: "admin" | "member";
@@ -145,6 +165,7 @@ export const createUserData = async (
     await writeData(`users/${uid}`, {
       firstName: userData.firstName,
       lastName: userData.lastName,
+      systemRole: userData.systemRole || 'member',
       clubs: userData.clubs || {}
     });
     return true;

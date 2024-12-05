@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Container,
   Paper,
@@ -16,37 +16,20 @@ import { login, saveUserToStorage } from '../services/auth';
 
 function Login() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [isAutofilled, setIsAutofilled] = useState(false);
 
   useEffect(() => {
-    // Check if fields are autofilled
-    const checkAutofill = () => {
-      const emailInput = document.querySelector('input[type="email"]') as HTMLInputElement;
-      const passwordInput = document.querySelector('input[type="password"]') as HTMLInputElement;
-      
-      if (emailInput && passwordInput) {
-        const isAnyAutofilled = 
-          emailInput.value.length > 0 || 
-          passwordInput.value.length > 0;
-        
-        setIsAutofilled(isAnyAutofilled);
-        
-        if (isAnyAutofilled) {
-          setEmail(emailInput.value);
-          setPassword(passwordInput.value);
-        }
-      }
-    };
-
-    // Check immediately and after a short delay to catch browser autofill
-    checkAutofill();
-    setTimeout(checkAutofill, 500);
-  }, []);
+    // Check for account_disabled error in URL
+    const params = new URLSearchParams(location.search);
+    if (params.get('error') === 'account_disabled') {
+      setError('Your account has been disabled. Please contact an administrator.');
+    }
+  }, [location]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -76,14 +59,10 @@ function Login() {
     }
   };
 
-  const handleTogglePassword = () => {
-    setShowPassword((prev) => !prev);
-  };
-
   return (
     <Container maxWidth="sm" sx={{ mt: 8 }}>
       <Paper elevation={3} sx={{ p: 4 }}>
-        <Typography variant="h4" component="h1" gutterBottom align="center">
+        <Typography variant="h4" component="h1" gutterBottom align="center" sx={{ color: '#673ab7' }}>
           Login to Chiply
         </Typography>
 
@@ -95,55 +74,29 @@ function Login() {
 
         <form onSubmit={handleSubmit}>
           <TextField
-            label="Email"
             type="email"
+            label="Email"
             value={email}
-            onChange={(e) => setEmail(e.target.value.trim())}
+            onChange={(e) => setEmail(e.target.value)}
             fullWidth
-            required
             margin="normal"
-            autoComplete="email"
             disabled={loading}
-            error={!!error}
-            InputLabelProps={{
-              shrink: true,
-            }}
-            sx={{
-              '& .MuiInputBase-input:-webkit-autofill': {
-                '-webkit-box-shadow': '0 0 0 100px #fff inset',
-                '-webkit-text-fill-color': 'inherit'
-              },
-            }}
           />
 
           <TextField
-            label="Password"
             type={showPassword ? 'text' : 'password'}
+            label="Password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             fullWidth
-            required
             margin="normal"
-            autoComplete="current-password"
             disabled={loading}
-            error={!!error}
-            InputLabelProps={{
-              shrink: true,
-            }}
-            sx={{
-              '& .MuiInputBase-input:-webkit-autofill': {
-                '-webkit-box-shadow': '0 0 0 100px #fff inset',
-                '-webkit-text-fill-color': 'inherit'
-              },
-            }}
             InputProps={{
               endAdornment: (
                 <InputAdornment position="end">
                   <IconButton
-                    aria-label="toggle password visibility"
-                    onClick={handleTogglePassword}
+                    onClick={() => setShowPassword(!showPassword)}
                     edge="end"
-                    disabled={loading}
                   >
                     {showPassword ? <VisibilityOff /> : <Visibility />}
                   </IconButton>
@@ -156,18 +109,17 @@ function Login() {
             type="submit"
             variant="contained"
             fullWidth
-            size="large"
             disabled={loading}
-            sx={{ mt: 2 }}
+            sx={{ 
+              mt: 3, 
+              mb: 2,
+              bgcolor: '#673ab7',
+              '&:hover': {
+                bgcolor: '#563098'
+              }
+            }}
           >
-            {loading ? (
-              <>
-                <CircularProgress size={24} sx={{ mr: 1 }} color="inherit" />
-                Logging in...
-              </>
-            ) : (
-              'Login'
-            )}
+            {loading ? <CircularProgress size={24} color="inherit" /> : 'Login'}
           </Button>
         </form>
       </Paper>
