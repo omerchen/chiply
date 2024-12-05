@@ -27,9 +27,13 @@ const BreadcrumbText = styled(Typography)(({ theme }) => ({
 
 interface AdminBreadcrumbsProps {
   currentPage: string;
+  intermediateLinks?: Array<{
+    label: string;
+    to: string;
+  }>;
 }
 
-function AdminBreadcrumbs({ currentPage }: AdminBreadcrumbsProps) {
+function AdminBreadcrumbs({ currentPage, intermediateLinks = [] }: AdminBreadcrumbsProps) {
   return (
     <Box sx={{ mb: 3, mt: 1 }}>
       <Stack 
@@ -47,6 +51,21 @@ function AdminBreadcrumbs({ currentPage }: AdminBreadcrumbsProps) {
             fontSize: 18
           }} 
         />
+
+        {intermediateLinks.map((link, index) => (
+          <React.Fragment key={link.to}>
+            <BreadcrumbLink to={link.to}>
+              {link.label}
+            </BreadcrumbLink>
+
+            <NavigateNextIcon 
+              sx={{ 
+                color: 'text.secondary',
+                fontSize: 18
+              }} 
+            />
+          </React.Fragment>
+        ))}
 
         <BreadcrumbText variant="body2">
           {currentPage}

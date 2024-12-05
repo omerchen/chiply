@@ -1,9 +1,9 @@
 export interface User {
     id: string;
-    email: string;
     firstName: string;
     lastName: string;
     systemRole: 'admin' | 'member';
+    email: string;
     disabledAt?: number | null;
     clubs: {
         [key: string]: {

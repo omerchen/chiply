@@ -1,5 +1,10 @@
 import React from "react";
-import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Navigate,
+} from "react-router-dom";
 import Layout from "./components/Layout";
 import Home from "./pages/Home";
 import Clubs from "./pages/Clubs";
@@ -19,6 +24,8 @@ import SessionSummary from "./pages/SessionSummary";
 import AdminPanel from "./pages/AdminPanel/index";
 import AdminClubs from "./pages/AdminPanel/AdminClubs";
 import AdminUsers from "./pages/AdminPanel/AdminUsers";
+import CreateUser from "./pages/AdminPanel/CreateUser";
+import EditUser from './pages/AdminPanel/EditUser';
 
 function App() {
   return (
@@ -42,6 +49,8 @@ function App() {
                   <Route index element={<AdminPanel />} />
                   <Route path="clubs" element={<AdminClubs />} />
                   <Route path="users" element={<AdminUsers />} />
+                  <Route path="users/create" element={<CreateUser />} />
+                  <Route path="users/:userId" element={<EditUser />} />
                 </Routes>
               </AdminProtectedRoute>
             }

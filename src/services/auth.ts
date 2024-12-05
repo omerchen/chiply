@@ -151,6 +151,7 @@ export const checkAuth = async (): Promise<boolean> => {
 export const createUserData = async (
   uid: string,
   userData: {
+    email: string;
     firstName: string;
     lastName: string;
     systemRole?: 'admin' | 'member';
@@ -163,6 +164,7 @@ export const createUserData = async (
 ) => {
   try {
     await writeData(`users/${uid}`, {
+      email: userData.email,
       firstName: userData.firstName,
       lastName: userData.lastName,
       systemRole: userData.systemRole || 'member',

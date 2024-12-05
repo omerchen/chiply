@@ -24,11 +24,13 @@ import ActionButton from '../../components/ActionButton';
 import { readData, updateData } from '../../services/database';
 import { User } from '../../types/User';
 import { getCurrentUser } from '../../services/auth';
+import { useNavigate } from 'react-router-dom';
 
 const AdminUsers: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchData = async () => {
@@ -61,7 +63,7 @@ const AdminUsers: React.FC = () => {
   }, []);
 
   const handleAddUser = () => {
-    // Will implement later
+    navigate('/admin/users/create');
   };
 
   const handleCopyId = (id: string) => {
@@ -128,10 +130,17 @@ const AdminUsers: React.FC = () => {
               {users.map((user) => (
                 <TableRow 
                   key={user.id}
-                  sx={user.disabledAt ? { 
-                    bgcolor: 'rgba(0, 0, 0, 0.04)',
-                    '& > *': { color: 'text.disabled' }
-                  } : {}}
+                  sx={{
+                    ...user.disabledAt ? { 
+                      bgcolor: 'rgba(0, 0, 0, 0.04)',
+                      '& > *': { color: 'text.disabled' }
+                    } : {},
+                    cursor: 'pointer',
+                    '&:hover': {
+                      bgcolor: 'rgba(0, 0, 0, 0.04)'
+                    }
+                  }}
+                  onClick={() => navigate(`/admin/users/${user.id}`)}
                 >
                   <TableCell>{`${user.firstName} ${user.lastName}`}</TableCell>
                   <TableCell>{user.email}</TableCell>
