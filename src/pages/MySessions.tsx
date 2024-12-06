@@ -58,6 +58,8 @@ interface ProcessedSession {
   buyinTotal: number;
   finalStack: number | null;
   profitLoss: number | null;
+  clubName: string;
+  playerCount: number;
 }
 
 function MySessions() {
@@ -91,6 +93,11 @@ function MySessions() {
         const sessionsRef = ref(db, "sessions");
         const sessionsSnapshot = await get(sessionsRef);
         const sessionsData = sessionsSnapshot.val();
+
+        // Get all clubs
+        const clubsRef = ref(db, "clubs");
+        const clubsSnapshot = await get(clubsRef);
+        const clubsData = clubsSnapshot.val();
 
         if (!sessionsData) {
           setLoading(false);
@@ -130,6 +137,8 @@ function MySessions() {
             }
 
             const buyinTotal = playerBuyins.reduce((sum: number, buyin: any) => sum + buyin.amount, 0);
+            const playerCount = Object.keys(session.data?.players || {}).length;
+            const clubName = clubsData[session.clubId]?.name || "Unknown Club";
 
             return {
               id: sessionId,
@@ -140,6 +149,8 @@ function MySessions() {
               buyinTotal,
               finalStack: playerCashout?.stackValue || null,
               profitLoss: playerCashout ? playerCashout.stackValue - buyinTotal : null,
+              clubName,
+              playerCount,
             };
           })
           .filter((session): session is ProcessedSession => session !== null)
@@ -196,7 +207,9 @@ function MySessions() {
             <TableHead>
               <TableRow>
                 <TableCell>Date</TableCell>
+                <TableCell>Club</TableCell>
                 <TableCell>Status</TableCell>
+                <TableCell>Players</TableCell>
                 <TableCell>Play Time</TableCell>
                 <TableCell align="right">Buy-ins</TableCell>
                 <TableCell align="right">Total Buy-in</TableCell>
@@ -210,6 +223,7 @@ function MySessions() {
                   <TableCell>
                     {new Date(session.date).toLocaleDateString()}
                   </TableCell>
+                  <TableCell>{session.clubName}</TableCell>
                   <TableCell>
                     <Box
                       component="span"
@@ -235,6 +249,7 @@ function MySessions() {
                       {session.status}
                     </Box>
                   </TableCell>
+                  <TableCell>{session.playerCount}</TableCell>
                   <TableCell>{session.playTime || "-"}</TableCell>
                   <TableCell align="right">{session.buyinCount}</TableCell>
                   <TableCell align="right">₪{session.buyinTotal}</TableCell>
