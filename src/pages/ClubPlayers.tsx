@@ -12,6 +12,7 @@ import {
   TableRow,
   CircularProgress,
   Box,
+  Tooltip,
 } from "@mui/material";
 import PeopleOutlineIcon from "@mui/icons-material/PeopleOutline";
 import PersonAddIcon from "@mui/icons-material/PersonAdd";
@@ -19,12 +20,15 @@ import { readData } from "../services/database";
 import ClubBreadcrumbs from "../components/ClubBreadcrumbs";
 import ActionButton from "../components/ActionButton";
 import { getCurrentUser } from "../services/auth";
+import { format, formatDistanceToNow } from "date-fns";
 
 interface Player {
   id: string;
   email: string;
   firstName: string;
   lastName: string;
+  sessionsCount?: number;
+  lastSessionTime?: number;
 }
 
 interface ClubPlayer {
@@ -43,9 +47,10 @@ function ClubPlayers() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [clubData, currentUser] = await Promise.all([
+        const [clubData, currentUser, sessionsData] = await Promise.all([
           readData(`clubs/${clubId}`),
           getCurrentUser(),
+          readData("sessions")
         ]);
 
         setClubName(clubData.name || "");
@@ -64,6 +69,20 @@ function ClubPlayers() {
           return;
         }
 
+        // Process sessions data
+        const playerSessions = new Map<string, { count: number; lastTime: number }>();
+        
+        Object.values(sessionsData || {}).forEach((session: any) => {
+          if (session.clubId === clubId && session.data?.players) {
+            Object.keys(session.data.players).forEach(playerId => {
+              const currentStats = playerSessions.get(playerId) || { count: 0, lastTime: 0 };
+              currentStats.count += 1;
+              currentStats.lastTime = Math.max(currentStats.lastTime, session.details.startTime);
+              playerSessions.set(playerId, currentStats);
+            });
+          }
+        });
+
         // Rest of the existing player fetching logic...
         const playerIds = Object.keys(clubData.players);
         const playersData = await readData("players");
@@ -74,9 +93,12 @@ function ClubPlayers() {
             if (!playerData) {
               return null;
             }
+            const sessionStats = playerSessions.get(playerId);
             return {
               id: playerId,
               ...playerData,
+              sessionsCount: sessionStats?.count || 0,
+              lastSessionTime: sessionStats?.lastTime || 0
             };
           })
           .filter((player): player is Player => {
@@ -187,6 +209,8 @@ function ClubPlayers() {
                 <TableRow>
                   <TableCell sx={{ fontWeight: "bold" }}>Name</TableCell>
                   <TableCell sx={{ fontWeight: "bold" }}>Email</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: "bold" }}>Sessions</TableCell>
+                  <TableCell sx={{ fontWeight: "bold" }}>Last Session</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -207,6 +231,18 @@ function ClubPlayers() {
                       {player.firstName} {player.lastName}
                     </TableCell>
                     <TableCell>{player.email}</TableCell>
+                    <TableCell align="right">{player.sessionsCount}</TableCell>
+                    <TableCell>
+                      {player.lastSessionTime ? (
+                        <Tooltip title={format(new Date(player.lastSessionTime), 'dd/MM/yyyy HH:mm')}>
+                          <span>
+                            {formatDistanceToNow(new Date(player.lastSessionTime), { addSuffix: true })}
+                          </span>
+                        </Tooltip>
+                      ) : (
+                        '-'
+                      )}
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>

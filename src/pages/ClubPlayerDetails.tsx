@@ -8,6 +8,7 @@ import {
 } from '@mui/material';
 import { readData } from '../services/database';
 import ClubBreadcrumbs from '../components/ClubBreadcrumbs';
+import PlayerDashboard from '../components/PlayerDashboard';
 
 interface PlayerData {
   id: string;
@@ -69,14 +70,30 @@ function ClubPlayerDetails() {
           path: "players"
         }]}
       />
-      <Paper elevation={3} sx={{ p: 4, borderRadius: 2 }}>
-        <Typography variant="h5" gutterBottom>
+      <Paper elevation={3} sx={{ p: 4, borderRadius: 2, mb: 3 }}>
+        <Typography 
+          variant="h4" 
+          gutterBottom
+          sx={{
+            fontWeight: "bold",
+            background: "linear-gradient(45deg, #673ab7, #9c27b0)",
+            WebkitBackgroundClip: "text",
+            WebkitTextFillColor: "transparent",
+          }}
+        >
           {player.firstName} {player.lastName}
         </Typography>
         <Typography color="text.secondary">
           {player.email}
         </Typography>
       </Paper>
+      
+      <PlayerDashboard 
+        playerId={playerId!} 
+        clubIds={[clubId!]} 
+        defaultClubId={clubId!}
+        isClubFilterReadOnly={true}
+      />
     </Container>
   );
 }

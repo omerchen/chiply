@@ -45,6 +45,8 @@ type DashboardUnit = "cash" | "bb";
 interface PlayerDashboardProps {
   playerId: string;
   clubIds: string[];
+  defaultClubId?: string;
+  isClubFilterReadOnly?: boolean;
 }
 
 interface Player {
@@ -70,10 +72,12 @@ interface Stakes {
 export default function PlayerDashboard({
   playerId,
   clubIds,
+  defaultClubId,
+  isClubFilterReadOnly = false
 }: PlayerDashboardProps) {
   const [loading, setLoading] = useState(true);
   const [player, setPlayer] = useState<Player | null>(null);
-  const [selectedClubId, setSelectedClubId] = useState<string>("");
+  const [selectedClubId, setSelectedClubId] = useState<string>(defaultClubId || "");
   const [clubs, setClubs] = useState<{ id: string; name: string }[]>([]);
   const [dateRangeOption, setDateRangeOption] =
     useState<DateRangeOption>("all");
@@ -438,6 +442,7 @@ export default function PlayerDashboard({
                 value={selectedClubId}
                 label="Filter by Club"
                 onChange={(e) => setSelectedClubId(e.target.value)}
+                disabled={isClubFilterReadOnly}
               >
                 <MenuItem value="">
                   <em>All Clubs</em>
