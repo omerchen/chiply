@@ -407,7 +407,11 @@ function ClubSessionDetails() {
 
     const player = players.find((p) => p.id === playerId);
     const buyin = session.data.buyins[buyinId];
-    if (!player || !buyin) return;
+    // Check if player is cashed out
+    const isCashedOut = Object.values(session.data.cashouts || {}).some(
+      (cashout) => cashout.playerId === playerId
+    );
+    if (!player || !buyin || isCashedOut) return;
 
     setBuyinToDelete({
       playerId,
@@ -445,6 +449,12 @@ function ClubSessionDetails() {
     isPayBox: boolean
   ) => {
     if (!session) return;
+
+    // Check if player is cashed out
+    const isCashedOut = Object.values(session.data.cashouts || {}).some(
+      (cashout) => cashout.playerId === playerId
+    );
+    if (isCashedOut) return;
 
     try {
       const buyinData = {
@@ -1007,6 +1017,11 @@ function ClubSessionDetails() {
               }
               onEditBuyin={userRole === "admin" ? editBuyin : undefined}
               isSessionClosed={session.status === "close"}
+              cashedOutPlayerIds={
+                Object.values(session?.data?.cashouts || {}).map(
+                  (cashout) => cashout.playerId
+                )
+              }
             />
           </Grid>
 

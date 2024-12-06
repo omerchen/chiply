@@ -57,6 +57,7 @@ interface BuyinFormProps {
     isPayBox: boolean
   ) => void;
   isSessionClosed?: boolean;
+  cashedOutPlayerIds?: string[];
 }
 
 type Order = 'asc' | 'desc';
@@ -70,7 +71,7 @@ interface BuyinData {
   isPayBox: boolean;
 }
 
-function BuyinForm({ players, onBuyin, onRemoveBuyin, onEditBuyin, isSessionClosed }: BuyinFormProps) {
+function BuyinForm({ players, onBuyin, onRemoveBuyin, onEditBuyin, isSessionClosed, cashedOutPlayerIds = [] }: BuyinFormProps) {
   const [selectedPlayerId, setSelectedPlayerId] = useState("");
   const [amount, setAmount] = useState("");
   const [isPayBox, setIsPayBox] = useState(false);
@@ -258,8 +259,12 @@ function BuyinForm({ players, onBuyin, onRemoveBuyin, onEditBuyin, isSessionClos
               disabled={isSessionClosed || !hasEditPermissions}
             >
               {players.map((player) => (
-                <MenuItem key={player.id} value={player.id}>
-                  {player.name}
+                <MenuItem 
+                  key={player.id} 
+                  value={player.id}
+                  disabled={cashedOutPlayerIds.includes(player.id)}
+                >
+                  {player.name}{cashedOutPlayerIds.includes(player.id) ? " (Cashed Out)" : ""}
                 </MenuItem>
               ))}
             </Select>
@@ -374,20 +379,38 @@ function BuyinForm({ players, onBuyin, onRemoveBuyin, onEditBuyin, isSessionClos
                 </TableCell>
                 <TableCell>
                   <Stack direction="row" spacing={1}>
-                    <IconButton
-                      size="small"
-                      onClick={() => handleEditClick(buyin)}
-                      disabled={isSessionClosed || !hasEditPermissions}
-                    >
-                      <EditIcon fontSize="small" />
-                    </IconButton>
-                    <IconButton
-                      size="small"
-                      onClick={() => onRemoveBuyin && onRemoveBuyin(buyin.playerId, buyin.id)}
-                      disabled={isSessionClosed || !hasEditPermissions}
-                    >
-                      <DeleteIcon fontSize="small" />
-                    </IconButton>
+                    <Tooltip title={cashedOutPlayerIds.includes(buyin.playerId) ? "Cannot edit buy-in for cashed out player" : ""}>
+                      <span>
+                        <IconButton
+                          size="small"
+                          onClick={() => handleEditClick(buyin)}
+                          disabled={isSessionClosed || !hasEditPermissions || cashedOutPlayerIds.includes(buyin.playerId)}
+                          sx={{
+                            '&.Mui-disabled': {
+                              color: 'rgba(0, 0, 0, 0.26) !important'
+                            }
+                          }}
+                        >
+                          <EditIcon fontSize="small" />
+                        </IconButton>
+                      </span>
+                    </Tooltip>
+                    <Tooltip title={cashedOutPlayerIds.includes(buyin.playerId) ? "Cannot delete buy-in for cashed out player" : ""}>
+                      <span>
+                        <IconButton
+                          size="small"
+                          onClick={() => onRemoveBuyin && onRemoveBuyin(buyin.playerId, buyin.id)}
+                          disabled={isSessionClosed || !hasEditPermissions || cashedOutPlayerIds.includes(buyin.playerId)}
+                          sx={{
+                            '&.Mui-disabled': {
+                              color: 'rgba(0, 0, 0, 0.26) !important'
+                            }
+                          }}
+                        >
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      </span>
+                    </Tooltip>
                   </Stack>
                 </TableCell>
               </TableRow>
