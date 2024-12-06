@@ -70,7 +70,10 @@ const AdminUsers: React.FC = () => {
     navigator.clipboard.writeText(id);
   };
 
-  const handleToggleDisabled = async (user: User) => {
+  const handleToggleDisabled = async (e: React.MouseEvent, user: User) => {
+    // Stop event propagation to prevent row click
+    e.stopPropagation();
+    
     // Prevent disabling yourself
     if (user.id === currentUserId) {
       console.error("You cannot disable your own account");
@@ -185,7 +188,7 @@ const AdminUsers: React.FC = () => {
                     }>
                       <span>
                         <IconButton
-                          onClick={() => handleToggleDisabled(user)}
+                          onClick={(e) => handleToggleDisabled(e, user)}
                           disabled={user.id === currentUserId}
                           sx={{ 
                             color: user.disabledAt ? 'success.main' : 'error.main',

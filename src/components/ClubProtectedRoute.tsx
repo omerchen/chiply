@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Navigate, useParams } from "react-router-dom";
 import { CircularProgress, Container } from "@mui/material";
 import { getCurrentUser } from "../services/auth";
+import { readData } from "../services/database";
 import ErrorPage from "../pages/ErrorPage";
 
 interface ClubProtectedRouteProps {
@@ -25,13 +26,29 @@ function ClubProtectedRoute({ children }: ClubProtectedRouteProps) {
           return;
         }
 
-        if (user.systemRole === "admin") {
+        if (!clubId) {
           setHasAccess(true);
           setLoading(false);
           return;
         }
 
-        if (!clubId) {
+        // Check if club exists and is not disabled
+        const clubData = await readData(`clubs/${clubId}`);
+        if (!clubData) {
+          setError("Club not found");
+          setLoading(false);
+          return;
+        }
+
+        // If club is disabled and user is not an admin, deny access
+        if (clubData.disabledAt && user.systemRole !== "admin") {
+          setError("This club is currently disabled");
+          setLoading(false);
+          return;
+        }
+
+        // Admin always has access
+        if (user.systemRole === "admin") {
           setHasAccess(true);
           setLoading(false);
           return;
@@ -69,9 +86,9 @@ function ClubProtectedRoute({ children }: ClubProtectedRouteProps) {
     return <Navigate to="/login" />;
   }
 
-  if (!hasAccess) {
+  if (!hasAccess || error) {
     return (
-      <ErrorPage customMessage="You don't have permission to access this club" />
+      <ErrorPage customMessage={error || "You don't have permission to access this club"} />
     );
   }
 
