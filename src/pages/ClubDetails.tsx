@@ -13,7 +13,7 @@ import {
 } from "@mui/material";
 import DashboardIcon from "@mui/icons-material/Dashboard";
 import GroupIcon from "@mui/icons-material/Group";
-import StyleIcon from "@mui/icons-material/Style";
+import EventIcon from "@mui/icons-material/Event";
 import PersonAddIcon from "@mui/icons-material/PersonAdd";
 import AddIcon from "@mui/icons-material/Add";
 import { getCurrentUser } from "../services/auth";
@@ -128,7 +128,7 @@ function ClubDetails() {
     },
     {
       title: "Sessions",
-      icon: <StyleIcon sx={{ fontSize: 40 }} />,
+      icon: <EventIcon sx={{ fontSize: 40 }} />,
       path: "sessions",
     },
     {
