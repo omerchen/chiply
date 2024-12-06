@@ -64,6 +64,11 @@ interface ProcessedSession {
   hands: number | null;
 }
 
+interface CashoutData {
+  time: number;
+  stackValue: number;
+}
+
 function MySessions() {
   const [loading, setLoading] = useState(true);
   const [sessions, setSessions] = useState<ProcessedSession[]>([]);
@@ -81,9 +86,11 @@ function MySessions() {
         const playersRef = ref(db, "players");
         const playersSnapshot = await get(playersRef);
         const playersData = playersSnapshot.val();
-        
+
         const userPlayerIds = Object.entries(playersData || {})
-          .filter(([_, player]: [string, any]) => player.email === currentUser.email)
+          .filter(
+            ([_, player]: [string, any]) => player.email === currentUser.email
+          )
           .map(([id]) => id);
 
         if (userPlayerIds.length === 0) {
@@ -107,18 +114,27 @@ function MySessions() {
         }
 
         // Process sessions
-        const processedSessions: ProcessedSession[] = Object.entries(sessionsData)
+        const processedSessions: ProcessedSession[] = Object.entries(
+          sessionsData
+        )
           .map(([sessionId, session]: [string, any]) => {
-            const playerBuyins = Object.values(session.data?.buyins || {}).filter(
-              (buyin: any) => userPlayerIds.includes(buyin.playerId)
-            );
-            
-            const playerCashout = Object.values(session.data?.cashouts || {}).find(
-              (cashout: any) => userPlayerIds.includes(cashout.playerId)
-            );
+            const playerBuyins = Object.values(
+              session.data?.buyins || {}
+            ).filter((buyin: any) => userPlayerIds.includes(buyin.playerId));
+
+            const playerCashout = Object.values(
+              session.data?.cashouts || {}
+            ).find((cashout: any) =>
+              userPlayerIds.includes(cashout.playerId)
+            ) as CashoutData | undefined;
 
             // Skip sessions where the player isn't involved
-            if (!playerBuyins.length && !Object.keys(session.data?.players || {}).some(id => userPlayerIds.includes(id))) {
+            if (
+              !playerBuyins.length &&
+              !Object.keys(session.data?.players || {}).some((id) =>
+                userPlayerIds.includes(id)
+              )
+            ) {
               return null;
             }
 
@@ -130,24 +146,33 @@ function MySessions() {
             // Calculate play time and hands
             let playTime: string | null = null;
             let hands: number | null = null;
-            
+
             if (playerBuyins.length > 0) {
-              const firstBuyinTime = Math.min(...playerBuyins.map((b: any) => b.time));
+              const firstBuyinTime = Math.min(
+                ...playerBuyins.map((b: any) => b.time)
+              );
               const endTime = playerCashout ? playerCashout.time : Date.now();
               const playTimeMs = endTime - firstBuyinTime;
               const hours = Math.floor(playTimeMs / (1000 * 60 * 60));
-              const minutes = Math.floor((playTimeMs % (1000 * 60 * 60)) / (1000 * 60));
+              const minutes = Math.floor(
+                (playTimeMs % (1000 * 60 * 60)) / (1000 * 60)
+              );
               playTime = `${hours}h ${minutes}m`;
-              
+
               // Calculate hands for both Playing and Completed sessions
               const durationMinutes = Math.floor(playTimeMs / (1000 * 60));
-              const playerCount = Object.keys(session.data?.players || {}).length;
+              const playerCount = Object.keys(
+                session.data?.players || {}
+              ).length;
               if (playerCount > 0) {
                 hands = getApproximateHands(playerCount, durationMinutes);
               }
             }
 
-            const buyinTotal = playerBuyins.reduce((sum: number, buyin: any) => sum + buyin.amount, 0);
+            const buyinTotal = playerBuyins.reduce(
+              (sum: number, buyin: any) => sum + buyin.amount,
+              0
+            );
             const playerCount = Object.keys(session.data?.players || {}).length;
             const clubName = clubsData[session.clubId]?.name || "Unknown Club";
 
@@ -159,7 +184,9 @@ function MySessions() {
               buyinCount: playerBuyins.length,
               buyinTotal,
               finalStack: playerCashout?.stackValue || null,
-              profitLoss: playerCashout ? playerCashout.stackValue - buyinTotal : null,
+              profitLoss: playerCashout
+                ? playerCashout.stackValue - buyinTotal
+                : null,
               clubName,
               playerCount,
               hands,
@@ -264,11 +291,15 @@ function MySessions() {
                   </TableCell>
                   <TableCell>{session.playerCount}</TableCell>
                   <TableCell>{session.playTime || "-"}</TableCell>
-                  <TableCell align="right">{formatHands(session.hands)}</TableCell>
+                  <TableCell align="right">
+                    {formatHands(session.hands)}
+                  </TableCell>
                   <TableCell align="right">{session.buyinCount}</TableCell>
                   <TableCell align="right">₪{session.buyinTotal}</TableCell>
                   <TableCell align="right">
-                    {session.finalStack !== null ? `₪${session.finalStack}` : "-"}
+                    {session.finalStack !== null
+                      ? `₪${session.finalStack}`
+                      : "-"}
                   </TableCell>
                   <TableCell
                     align="right"
@@ -285,7 +316,9 @@ function MySessions() {
                     }}
                   >
                     {session.profitLoss !== null
-                      ? `${session.profitLoss > 0 ? "+" : ""}₪${session.profitLoss}`
+                      ? `${session.profitLoss > 0 ? "+" : ""}₪${
+                          session.profitLoss
+                        }`
                       : "-"}
                   </TableCell>
                 </TableRow>
@@ -298,4 +331,4 @@ function MySessions() {
   );
 }
 
-export default MySessions; 
+export default MySessions;
