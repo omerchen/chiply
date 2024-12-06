@@ -1,4 +1,4 @@
-import { signInWithEmailAndPassword, signOut, sendSignInLinkToEmail, isSignInWithEmailLink, signInWithEmailLink } from 'firebase/auth';
+import { signInWithEmailAndPassword, signOut, sendSignInLinkToEmail, isSignInWithEmailLink, signInWithEmailLink, createUserWithEmailAndPassword, fetchSignInMethodsForEmail, updatePassword } from 'firebase/auth';
 import { db, auth } from '../config/firebase';
 import { readData, writeData } from './database';
 
@@ -240,6 +240,105 @@ export const completeLoginWithEmailLink = async (): Promise<User | null> => {
     return user;
   } catch (error) {
     console.error('Error completing email link sign in:', error);
+    if (error instanceof Error) {
+      throw error;
+    }
+    throw new Error('An unexpected error occurred');
+  }
+};
+
+interface SignUpData {
+  email: string;
+  password: string;
+  firstName: string;
+  lastName: string;
+}
+
+export const checkEmailExists = async (email: string): Promise<boolean> => {
+  try {
+    const methods = await fetchSignInMethodsForEmail(auth, email);
+    return methods.length > 0;
+  } catch (error) {
+    console.error('Error checking email:', error);
+    throw error;
+  }
+};
+
+export const sendSignUpLink = async (data: SignUpData): Promise<void> => {
+  const actionCodeSettings = {
+    url: window.location.origin + '/signup/verify',
+    handleCodeInApp: true
+  };
+
+  try {
+    // Check if email already exists
+    const exists = await checkEmailExists(data.email);
+    if (exists) {
+      throw new Error('An account with this email already exists');
+    }
+
+    await sendSignInLinkToEmail(auth, data.email, actionCodeSettings);
+    // Save the registration data locally to complete sign up after verification
+    localStorage.setItem('signUpData', JSON.stringify(data));
+  } catch (error) {
+    console.error('Error sending verification link:', error);
+    if (error instanceof Error) {
+      throw error;
+    }
+    throw new Error('An unexpected error occurred');
+  }
+};
+
+export const completeSignUpWithEmailLink = async (): Promise<User> => {
+  if (!isSignInWithEmailLink(auth, window.location.href)) {
+    throw new Error('Invalid verification link');
+  }
+
+  const signUpDataStr = localStorage.getItem('signUpData');
+  if (!signUpDataStr) {
+    throw new Error('Registration data not found. Please try signing up again.');
+  }
+
+  const signUpData: SignUpData = JSON.parse(signUpDataStr);
+
+  try {
+    // First verify the email using the link
+    const userCredential = await signInWithEmailLink(auth, signUpData.email, window.location.href);
+    
+    // After successful email verification, update the user's password
+    if (userCredential.user) {
+      await updatePassword(userCredential.user, signUpData.password);
+    }
+
+    // Create the user data in the database if it doesn't exist
+    const existingData = await readData(`users/${userCredential.user.uid}`);
+    if (!existingData) {
+      await createUserData(userCredential.user.uid, {
+        email: signUpData.email,
+        firstName: signUpData.firstName,
+        lastName: signUpData.lastName,
+        systemRole: 'member'
+      });
+    }
+
+    // Clean up stored data
+    localStorage.removeItem('signUpData');
+
+    // Create and return the user object
+    const user: User = {
+      id: userCredential.user.uid,
+      email: signUpData.email,
+      firstName: signUpData.firstName,
+      lastName: signUpData.lastName,
+      systemRole: 'member',
+      disabledAt: null,
+      clubs: {}
+    };
+
+    saveUserToStorage(user);
+    return user;
+  } catch (error) {
+    console.error('Error completing sign up:', error);
     if (error instanceof Error) {
       throw error;
     }

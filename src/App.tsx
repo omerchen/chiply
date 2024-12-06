@@ -27,12 +27,16 @@ import AdminUsers from "./pages/AdminPanel/AdminUsers";
 import CreateUser from "./pages/AdminPanel/CreateUser";
 import EditUser from "./pages/AdminPanel/EditUser";
 import CreateClub from "./pages/AdminPanel/CreateClub";
+import SignUp from './pages/SignUp';
+import SignUpVerify from './pages/SignUpVerify';
 
 function App() {
   return (
     <Router>
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/signup" element={<SignUp />} />
+        <Route path="/signup/verify" element={<SignUpVerify />} />
         <Route
           path="/"
           element={

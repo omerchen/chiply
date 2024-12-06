@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import {
   Container,
   Paper,
@@ -195,6 +195,15 @@ function Login() {
               'Send Login Link'
             )}
           </Button>
+
+          <Box sx={{ textAlign: 'center' }}>
+            <Typography variant="body2" color="text.secondary">
+              Don't have an account?{' '}
+              <Link to="/signup" style={{ color: '#673ab7', textDecoration: 'none' }}>
+                Sign up here
+              </Link>
+            </Typography>
+          </Box>
         </form>
       </Paper>
     </Container>
