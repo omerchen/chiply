@@ -5,8 +5,10 @@ export interface PlayerSessionData {
   buyinsTotal: number;  // sum of buyins
   stackValue: number;  // final stack value
   profit: number;  // stackValue - buyinsTotal
+  profitBB: number;  // profit converted to big blinds
   durationMinutes: number;  // duration in minutes
   approximateHands: number | null;  // approximate hands count
+  bb: number;  // big blind value for this session
 }
 
 export interface SessionData {

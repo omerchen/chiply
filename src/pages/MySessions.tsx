@@ -63,6 +63,12 @@ interface ProcessedSession {
   clubName: string;
   playerCount: number;
   hands: number | null;
+  stakes: {
+    smallBlind: number;
+    bigBlind: number;
+    ante?: number;
+  };
+  profitLossBB: number | null;
 }
 
 interface CashoutData {
@@ -191,6 +197,10 @@ function MySessions() {
               clubName,
               playerCount,
               hands,
+              stakes: session.details.stakes,
+              profitLossBB: playerCashout
+                ? (playerCashout.stackValue - buyinTotal) / session.details.stakes.bigBlind
+                : null,
             };
           })
           .filter((session): session is ProcessedSession => session !== null)
@@ -246,26 +256,33 @@ function MySessions() {
           <Table>
             <TableHead>
               <TableRow>
-                <TableCell>Date</TableCell>
-                <TableCell>Club</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell>Players</TableCell>
-                <TableCell>Play Time</TableCell>
-                <TableCell align="right">Hands</TableCell>
-                <TableCell align="right">Buy-ins</TableCell>
-                <TableCell align="right">Total Buy-in</TableCell>
-                <TableCell align="right">Final Stack</TableCell>
-                <TableCell align="right">P&L</TableCell>
+                <TableCell sx={{ minWidth: 100 }}>Date</TableCell>
+                <TableCell sx={{ minWidth: 120 }}>Club</TableCell>
+                <TableCell sx={{ minWidth: 80 }}>Stakes</TableCell>
+                <TableCell sx={{ minWidth: 100 }}>Status</TableCell>
+                <TableCell sx={{ minWidth: 80 }}>Players</TableCell>
+                <TableCell sx={{ minWidth: 100 }}>Play Time</TableCell>
+                <TableCell align="right" sx={{ minWidth: 100 }}>Hands</TableCell>
+                <TableCell align="right" sx={{ minWidth: 80 }}>Buy-ins</TableCell>
+                <TableCell align="right" sx={{ minWidth: 100 }}>Total Buy-in</TableCell>
+                <TableCell align="right" sx={{ minWidth: 100 }}>Final Stack</TableCell>
+                <TableCell align="right" sx={{ minWidth: 80 }}>P&L</TableCell>
+                <TableCell align="right" sx={{ minWidth: 80 }}>BB P&L</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {sessions.map((session) => (
                 <TableRow key={session.id}>
-                  <TableCell>
+                  <TableCell sx={{ minWidth: 100 }}>
                     {format(new Date(session.date), 'dd/MM/yyyy')}
                   </TableCell>
-                  <TableCell>{session.clubName}</TableCell>
-                  <TableCell>
+                  <TableCell sx={{ minWidth: 120 }}>{session.clubName}</TableCell>
+                  <TableCell sx={{ minWidth: 80 }}>
+                    {`${session.stakes.smallBlind}/${session.stakes.bigBlind}${
+                      session.stakes.ante ? ` (${session.stakes.ante})` : ''
+                    }`}
+                  </TableCell>
+                  <TableCell sx={{ minWidth: 100 }}>
                     <Box
                       component="span"
                       sx={{
@@ -290,14 +307,14 @@ function MySessions() {
                       {session.status}
                     </Box>
                   </TableCell>
-                  <TableCell>{session.playerCount}</TableCell>
-                  <TableCell>{session.playTime || "-"}</TableCell>
-                  <TableCell align="right">
+                  <TableCell sx={{ minWidth: 80 }}>{session.playerCount}</TableCell>
+                  <TableCell sx={{ minWidth: 100 }}>{session.playTime || "-"}</TableCell>
+                  <TableCell align="right" sx={{ minWidth: 100 }}>
                     {formatHands(session.hands)}
                   </TableCell>
-                  <TableCell align="right">{session.buyinCount}</TableCell>
-                  <TableCell align="right">₪{session.buyinTotal}</TableCell>
-                  <TableCell align="right">
+                  <TableCell align="right" sx={{ minWidth: 80 }}>{session.buyinCount}</TableCell>
+                  <TableCell align="right" sx={{ minWidth: 100 }}>₪{session.buyinTotal}</TableCell>
+                  <TableCell align="right" sx={{ minWidth: 100 }}>
                     {session.finalStack !== null
                       ? `₪${session.finalStack}`
                       : "-"}
@@ -305,6 +322,7 @@ function MySessions() {
                   <TableCell
                     align="right"
                     sx={{
+                      minWidth: 80,
                       color:
                         session.profitLoss === null
                           ? "inherit"
@@ -320,6 +338,25 @@ function MySessions() {
                       ? `${session.profitLoss > 0 ? "+" : ""}₪${
                           session.profitLoss
                         }`
+                      : "-"}
+                  </TableCell>
+                  <TableCell
+                    align="right"
+                    sx={{
+                      minWidth: 80,
+                      color:
+                        session.profitLossBB === null
+                          ? "inherit"
+                          : session.profitLossBB > 0
+                          ? "success.main"
+                          : session.profitLossBB < 0
+                          ? "error.main"
+                          : "inherit",
+                      fontWeight: "bold",
+                    }}
+                  >
+                    {session.profitLossBB !== null
+                      ? `${session.profitLossBB > 0 ? "+" : ""}${session.profitLossBB.toFixed(1)}`
                       : "-"}
                   </TableCell>
                 </TableRow>

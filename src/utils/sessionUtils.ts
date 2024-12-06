@@ -40,6 +40,15 @@ export function processPlayerSessionData(session: SessionDetails, playerId: stri
   // Get stack value from cashout
   const stackValue = playerCashout.stackValue;
 
+  // Calculate profit in cash
+  const profit = stackValue - buyinsTotal;
+
+  // Get BB value from session details
+  const bb = session.details.stakes.bigBlind;
+
+  // Calculate profit in BB
+  const profitBB = profit / bb;
+
   // Calculate duration in minutes
   const durationMinutes = Math.floor((endTime - time) / (1000 * 60));
 
@@ -53,8 +62,10 @@ export function processPlayerSessionData(session: SessionDetails, playerId: stri
     buyinsCount: playerBuyins.length,
     buyinsTotal,
     stackValue,
-    profit: stackValue - buyinsTotal,
+    profit,
+    profitBB,
     durationMinutes,
-    approximateHands
+    approximateHands,
+    bb
   };
 } 
