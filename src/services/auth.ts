@@ -1,4 +1,4 @@
-import { signInWithEmailAndPassword, signOut } from 'firebase/auth';
+import { signInWithEmailAndPassword, signOut, sendSignInLinkToEmail, isSignInWithEmailLink, signInWithEmailLink } from 'firebase/auth';
 import { db, auth } from '../config/firebase';
 import { readData, writeData } from './database';
 
@@ -174,5 +174,75 @@ export const createUserData = async (
   } catch (error) {
     console.error('Error creating user data:', error);
     throw error;
+  }
+};
+
+export const sendLoginLink = async (email: string): Promise<void> => {
+  const actionCodeSettings = {
+    url: window.location.origin + '/login',
+    handleCodeInApp: true
+  };
+
+  try {
+    await sendSignInLinkToEmail(auth, email, actionCodeSettings);
+    // Save the email locally to complete sign in after user clicks the link
+    localStorage.setItem('emailForSignIn', email);
+  } catch (error) {
+    console.error('Error sending login link:', error);
+    if (error instanceof Error) {
+      throw error;
+    }
+    throw new Error('An unexpected error occurred');
+  }
+};
+
+export const completeLoginWithEmailLink = async (): Promise<User | null> => {
+  if (!isSignInWithEmailLink(auth, window.location.href)) {
+    return null;
+  }
+
+  let email = localStorage.getItem('emailForSignIn');
+  if (!email) {
+    // If email is not found, return null - the UI will handle asking the user for their email
+    return null;
+  }
+
+  try {
+    const userCredential = await signInWithEmailLink(auth, email, window.location.href);
+    localStorage.removeItem('emailForSignIn'); // Clean up email from storage
+    const uid = userCredential.user.uid;
+
+    const userData = await readData(`users/${uid}`);
+    
+    if (!userData) {
+      throw new Error('User data not found. Please contact an administrator.');
+    }
+
+    if (!isFirebaseUser(userData)) {
+      throw new Error('Invalid user data format. Please contact an administrator.');
+    }
+
+    if (userData.disabledAt) {
+      throw new Error('This account has been disabled. Please contact an administrator.');
+    }
+
+    const user: User = {
+      id: uid,
+      email: userCredential.user.email!,
+      firstName: userData.firstName,
+      lastName: userData.lastName,
+      systemRole: userData.systemRole || 'member',
+      disabledAt: userData.disabledAt || null,
+      clubs: userData.clubs || {}
+    };
+
+    saveUserToStorage(user);
+    return user;
+  } catch (error) {
+    console.error('Error completing email link sign in:', error);
+    if (error instanceof Error) {
+      throw error;
+    }
+    throw new Error('An unexpected error occurred');
   }
 }; 
