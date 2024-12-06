@@ -19,7 +19,7 @@ function Home() {
           // Get all players with matching email
           const playersData = await readData('players');
           if (playersData) {
-            const matchingPlayer = Object.entries(playersData)
+            const matchingPlayer = Object.entries(playersData as Record<string, { email: string }>)
               .find(([_, player]) => player.email === userData.email);
 
             if (matchingPlayer) {
@@ -28,7 +28,7 @@ function Home() {
               // Get all clubs where this player is a member
               const clubsData = await readData('clubs');
               if (clubsData) {
-                const playerClubIds = Object.entries(clubsData)
+                const playerClubIds = Object.entries(clubsData as Record<string, { players?: Record<string, boolean> }>)
                   .filter(([_, club]) => club.players && club.players[playerId])
                   .map(([clubId]) => clubId);
 
