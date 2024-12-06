@@ -25,7 +25,8 @@ import AdminPanel from "./pages/AdminPanel/index";
 import AdminClubs from "./pages/AdminPanel/AdminClubs";
 import AdminUsers from "./pages/AdminPanel/AdminUsers";
 import CreateUser from "./pages/AdminPanel/CreateUser";
-import EditUser from './pages/AdminPanel/EditUser';
+import EditUser from "./pages/AdminPanel/EditUser";
+import CreateClub from "./pages/AdminPanel/CreateClub";
 
 function App() {
   return (
@@ -48,6 +49,7 @@ function App() {
                 <Routes>
                   <Route index element={<AdminPanel />} />
                   <Route path="clubs" element={<AdminClubs />} />
+                  <Route path="clubs/create" element={<CreateClub />} />
                   <Route path="users" element={<AdminUsers />} />
                   <Route path="users/create" element={<CreateUser />} />
                   <Route path="users/:userId" element={<EditUser />} />

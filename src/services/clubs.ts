@@ -25,7 +25,7 @@ export const getUserClubs = async (): Promise<Club[]> => {
           id: clubId,
           name: club.name || "Unknown Club",
           description: club.description,
-          role: clubData.role
+          role: clubData.role,
         };
       })
       .filter((club): club is NonNullable<typeof club> => club !== null);
@@ -41,10 +41,14 @@ export const getClubDetails = async (clubId: string): Promise<Club | null> => {
   try {
     const [clubData, user] = await Promise.all([
       readData(`clubs/${clubId}`),
-      getCurrentUser()
+      getCurrentUser(),
     ]);
 
-    if (!clubData || !user || !user.clubs || !user.clubs[clubId]) {
+    if (
+      !clubData ||
+      !user ||
+      (user.systemRole != "admin" && (!user.clubs || !user.clubs[clubId]))
+    ) {
       return null;
     }
 
@@ -52,7 +56,7 @@ export const getClubDetails = async (clubId: string): Promise<Club | null> => {
       id: clubId,
       name: clubData.name,
       description: clubData.description,
-      role: user.clubs[clubId].role
+      role: user.systemRole === "admin" ? "admin" : user.clubs[clubId].role,
     };
   } catch (error) {
     console.error("Error fetching club details:", error);

@@ -95,13 +95,17 @@ function ClubSessions() {
         const [clubData, sessionsData, currentUser] = await Promise.all([
           readData(`clubs/${clubId}`),
           readData("sessions"),
-          getCurrentUser()
+          getCurrentUser(),
         ]);
 
         setClubName(clubData.name || "");
-        
+
         if (currentUser) {
-          setUserRole(currentUser.clubs[clubId!]?.role);
+          setUserRole(
+            currentUser.systemRole == "admin"
+              ? "admin"
+              : currentUser.clubs[clubId!]?.role
+          );
         }
 
         // Filter sessions for this club and add IDs
@@ -248,7 +252,7 @@ function ClubSessions() {
         </Paper>
       )}
 
-      {userRole === 'admin' && (
+      {userRole === "admin" && (
         <Box sx={{ position: "fixed", bottom: 32, right: 32 }}>
           <ActionButton
             title="New Session"

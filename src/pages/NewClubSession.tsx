@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import React, { useEffect, useState } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import {
   Container,
   Paper,
@@ -8,18 +8,18 @@ import {
   TextField,
   Button,
   Box,
-  Grid
-} from '@mui/material';
-import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
-import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
-import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
-import dayjs from 'dayjs';
-import { v4 as uuidv4 } from 'uuid';
-import { readData, writeData } from '../services/database';
-import ClubBreadcrumbs from '../components/ClubBreadcrumbs';
-import { createTheme, ThemeProvider } from '@mui/material';
-import { auth } from '../config/firebase';
-import { getCurrentUser } from '../services/auth';
+  Grid,
+} from "@mui/material";
+import { DateTimePicker } from "@mui/x-date-pickers/DateTimePicker";
+import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
+import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
+import dayjs from "dayjs";
+import { v4 as uuidv4 } from "uuid";
+import { readData, writeData } from "../services/database";
+import ClubBreadcrumbs from "../components/ClubBreadcrumbs";
+import { createTheme, ThemeProvider } from "@mui/material";
+import { auth } from "../config/firebase";
+import { getCurrentUser } from "../services/auth";
 
 interface SessionForm {
   startTime: dayjs.Dayjs | null;
@@ -32,23 +32,23 @@ function NewClubSession() {
   const { clubId } = useParams<{ clubId: string }>();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
-  const [clubName, setClubName] = useState('');
+  const [clubName, setClubName] = useState("");
   const [error, setError] = useState<{ [key: string]: string }>({});
   const [userRole, setUserRole] = useState<string | null>(null);
 
   const theme = createTheme({
     palette: {
       primary: {
-        main: '#673ab7'
-      }
-    }
+        main: "#673ab7",
+      },
+    },
   });
 
   const [form, setForm] = useState<SessionForm>({
     startTime: dayjs(),
-    smallBlind: '',
-    bigBlind: '',
-    ante: ''
+    smallBlind: "",
+    bigBlind: "",
+    ante: "",
   });
 
   useEffect(() => {
@@ -57,26 +57,29 @@ function NewClubSession() {
       try {
         const [clubData, currentUser] = await Promise.all([
           readData(`clubs/${clubId}`),
-          getCurrentUser()
+          getCurrentUser(),
         ]);
-        
-        setClubName(clubData.name || '');
+
+        setClubName(clubData.name || "");
 
         if (!currentUser) {
-          navigate('/');
+          navigate("/");
           return;
         }
 
         // Check user's role in the club from user data
-        const userRole = currentUser.clubs[clubId!]?.role;
+        const userRole =
+          currentUser.systemRole == "admin"
+            ? "admin"
+            : currentUser.clubs[clubId!]?.role;
         setUserRole(userRole);
-        
+
         // Redirect if user is not an admin
-        if (userRole !== 'admin') {
+        if (userRole !== "admin") {
           navigate(`/clubs/${clubId}`);
         }
       } catch (error) {
-        console.error('Error fetching club data:', error);
+        console.error("Error fetching club data:", error);
         navigate(`/clubs/${clubId}`);
       } finally {
         setLoading(false);
@@ -86,34 +89,44 @@ function NewClubSession() {
     fetchData();
   }, [clubId, navigate]);
 
-  const handleChange = (field: keyof SessionForm) => (event: React.ChangeEvent<HTMLInputElement>) => {
-    setForm(prev => ({
-      ...prev,
-      [field]: event.target.value
-    }));
-    // Clear error when user types
-    if (error[field]) {
-      setError(prev => ({
+  const handleChange =
+    (field: keyof SessionForm) =>
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      setForm((prev) => ({
         ...prev,
-        [field]: ''
+        [field]: event.target.value,
       }));
-    }
-  };
+      // Clear error when user types
+      if (error[field]) {
+        setError((prev) => ({
+          ...prev,
+          [field]: "",
+        }));
+      }
+    };
 
   const validateForm = (): boolean => {
     const newErrors: { [key: string]: string } = {};
 
     if (!form.startTime) {
-      newErrors.startTime = 'Start time is required';
+      newErrors.startTime = "Start time is required";
     }
-    if (!form.smallBlind || isNaN(Number(form.smallBlind)) || Number(form.smallBlind) <= 0) {
-      newErrors.smallBlind = 'Valid small blind is required';
+    if (
+      !form.smallBlind ||
+      isNaN(Number(form.smallBlind)) ||
+      Number(form.smallBlind) <= 0
+    ) {
+      newErrors.smallBlind = "Valid small blind is required";
     }
-    if (!form.bigBlind || isNaN(Number(form.bigBlind)) || Number(form.bigBlind) <= 0) {
-      newErrors.bigBlind = 'Valid big blind is required';
+    if (
+      !form.bigBlind ||
+      isNaN(Number(form.bigBlind)) ||
+      Number(form.bigBlind) <= 0
+    ) {
+      newErrors.bigBlind = "Valid big blind is required";
     }
     if (form.ante && (isNaN(Number(form.ante)) || Number(form.ante) < 0)) {
-      newErrors.ante = 'Ante must be a valid number';
+      newErrors.ante = "Ante must be a valid number";
     }
 
     setError(newErrors);
@@ -134,39 +147,46 @@ function NewClubSession() {
           stakes: {
             bigBlind: Number(form.bigBlind),
             smallBlind: Number(form.smallBlind),
-            ...(form.ante ? { ante: Number(form.ante) } : {})
-          }
+            ...(form.ante ? { ante: Number(form.ante) } : {}),
+          },
         },
-        status: "open" as "open" | "close"
+        status: "open" as "open" | "close",
       };
 
       await writeData(`sessions/${sessionId}`, sessionData);
       navigate(`/clubs/${clubId}/sessions/${sessionId}`);
     } catch (err) {
-      console.error('Error creating session:', err);
-      setError({ submit: 'Failed to create session' });
+      console.error("Error creating session:", err);
+      setError({ submit: "Failed to create session" });
     }
   };
 
   if (loading) {
     return (
-      <Container sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
+      <Container
+        sx={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          minHeight: "60vh",
+        }}
+      >
         <CircularProgress />
       </Container>
     );
   }
 
   // Only render the main content if user is admin
-  if (userRole !== 'admin') {
+  if (userRole !== "admin") {
     return null;
   }
 
   return (
     <Container maxWidth="sm" sx={{ mt: 3, mb: 3 }}>
-      <ClubBreadcrumbs 
-        clubId={clubId!} 
+      <ClubBreadcrumbs
+        clubId={clubId!}
         clubName={clubName}
-        currentPage="New Session" 
+        currentPage="New Session"
       />
       <Paper elevation={3} sx={{ p: 4, borderRadius: 2 }}>
         <Typography variant="h5" gutterBottom sx={{ mb: 3 }}>
@@ -182,9 +202,9 @@ function NewClubSession() {
                     label="Start Time"
                     value={form.startTime}
                     onChange={(newValue) => {
-                      setForm(prev => ({ ...prev, startTime: newValue }));
+                      setForm((prev) => ({ ...prev, startTime: newValue }));
                       if (error.startTime) {
-                        setError(prev => ({ ...prev, startTime: '' }));
+                        setError((prev) => ({ ...prev, startTime: "" }));
                       }
                     }}
                     format="DD/MM/YYYY HH:mm"
@@ -193,51 +213,51 @@ function NewClubSession() {
                       textField: {
                         fullWidth: true,
                         error: !!error.startTime,
-                        helperText: error.startTime
+                        helperText: error.startTime,
                       },
                       day: {
                         sx: {
-                          '&.Mui-selected': {
-                            backgroundColor: '#673ab7 !important',
-                            '&:hover': {
-                              backgroundColor: '#563098 !important'
-                            }
-                          }
-                        }
-                      }
+                          "&.Mui-selected": {
+                            backgroundColor: "#673ab7 !important",
+                            "&:hover": {
+                              backgroundColor: "#563098 !important",
+                            },
+                          },
+                        },
+                      },
                     }}
                     sx={{
-                      '& .MuiPickersDay-root.Mui-selected': {
-                        backgroundColor: '#673ab7'
+                      "& .MuiPickersDay-root.Mui-selected": {
+                        backgroundColor: "#673ab7",
                       },
-                      '& .MuiClock-pin': {
-                        backgroundColor: '#673ab7'
+                      "& .MuiClock-pin": {
+                        backgroundColor: "#673ab7",
                       },
-                      '& .MuiClockPointer-root': {
-                        backgroundColor: '#673ab7'
+                      "& .MuiClockPointer-root": {
+                        backgroundColor: "#673ab7",
                       },
-                      '& .MuiClockPointer-thumb': {
-                        backgroundColor: '#673ab7',
-                        border: '16px solid #673ab7'
+                      "& .MuiClockPointer-thumb": {
+                        backgroundColor: "#673ab7",
+                        border: "16px solid #673ab7",
                       },
-                      '& .MuiClockNumber-root.Mui-selected': {
-                        backgroundColor: '#673ab7 !important'
+                      "& .MuiClockNumber-root.Mui-selected": {
+                        backgroundColor: "#673ab7 !important",
                       },
-                      '& .MuiPickersYear-yearButton.Mui-selected': {
-                        backgroundColor: '#673ab7'
+                      "& .MuiPickersYear-yearButton.Mui-selected": {
+                        backgroundColor: "#673ab7",
                       },
-                      '& .MuiPickersMonth-monthButton.Mui-selected': {
-                        backgroundColor: '#673ab7'
+                      "& .MuiPickersMonth-monthButton.Mui-selected": {
+                        backgroundColor: "#673ab7",
                       },
-                      '& .MuiPickersDay-root.Mui-selected:hover': {
-                        backgroundColor: '#563098'
+                      "& .MuiPickersDay-root.Mui-selected:hover": {
+                        backgroundColor: "#563098",
                       },
-                      '& .MuiDigitalClock-item.Mui-selected': {
-                        backgroundColor: '#673ab7 !important'
+                      "& .MuiDigitalClock-item.Mui-selected": {
+                        backgroundColor: "#673ab7 !important",
                       },
-                      '& .MuiMultiSectionDigitalClock-item.Mui-selected': {
-                        backgroundColor: '#673ab7 !important'
-                      }
+                      "& .MuiMultiSectionDigitalClock-item.Mui-selected": {
+                        backgroundColor: "#673ab7 !important",
+                      },
                     }}
                   />
                 </Grid>
@@ -248,7 +268,7 @@ function NewClubSession() {
                     label="Small Blind"
                     type="number"
                     value={form.smallBlind}
-                    onChange={handleChange('smallBlind')}
+                    onChange={handleChange("smallBlind")}
                     error={!!error.smallBlind}
                     helperText={error.smallBlind}
                     inputProps={{ min: 0, step: "0.5" }}
@@ -261,7 +281,7 @@ function NewClubSession() {
                     label="Big Blind"
                     type="number"
                     value={form.bigBlind}
-                    onChange={handleChange('bigBlind')}
+                    onChange={handleChange("bigBlind")}
                     error={!!error.bigBlind}
                     helperText={error.bigBlind}
                     inputProps={{ min: 0, step: "0.5" }}
@@ -274,7 +294,7 @@ function NewClubSession() {
                     label="Ante (Optional)"
                     type="number"
                     value={form.ante}
-                    onChange={handleChange('ante')}
+                    onChange={handleChange("ante")}
                     error={!!error.ante}
                     helperText={error.ante}
                     inputProps={{ min: 0, step: "0.5" }}
@@ -288,13 +308,15 @@ function NewClubSession() {
                 )}
 
                 <Grid item xs={12}>
-                  <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
+                  <Box
+                    sx={{ display: "flex", justifyContent: "flex-end", gap: 2 }}
+                  >
                     <Button
                       variant="contained"
                       type="submit"
                       sx={{
-                        bgcolor: '#673ab7',
-                        '&:hover': { bgcolor: '#563098' }
+                        bgcolor: "#673ab7",
+                        "&:hover": { bgcolor: "#563098" },
                       }}
                     >
                       Create Session
@@ -310,4 +332,4 @@ function NewClubSession() {
   );
 }
 
-export default NewClubSession; 
+export default NewClubSession;

@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from 'react';
-import { Navigate, useParams } from 'react-router-dom';
-import { CircularProgress, Container } from '@mui/material';
-import { getCurrentUser } from '../services/auth';
-import ErrorPage from '../pages/ErrorPage';
+import React, { useEffect, useState } from "react";
+import { Navigate, useParams } from "react-router-dom";
+import { CircularProgress, Container } from "@mui/material";
+import { getCurrentUser } from "../services/auth";
+import ErrorPage from "../pages/ErrorPage";
 
 interface ClubProtectedRouteProps {
   children: React.ReactNode;
@@ -18,9 +18,15 @@ function ClubProtectedRoute({ children }: ClubProtectedRouteProps) {
     const checkAccess = async () => {
       try {
         const user = await getCurrentUser();
-        
+
         if (!user) {
-          setError('Authentication required');
+          setError("Authentication required");
+          setLoading(false);
+          return;
+        }
+
+        if (user.systemRole === "admin") {
+          setHasAccess(true);
           setLoading(false);
           return;
         }
@@ -34,8 +40,8 @@ function ClubProtectedRoute({ children }: ClubProtectedRouteProps) {
         const hasClubAccess = !!(user.clubs && user.clubs[clubId]?.role);
         setHasAccess(hasClubAccess);
       } catch (err) {
-        console.error('Error checking club access:', err);
-        setError('Failed to verify access');
+        console.error("Error checking club access:", err);
+        setError("Failed to verify access");
       } finally {
         setLoading(false);
       }
@@ -46,21 +52,30 @@ function ClubProtectedRoute({ children }: ClubProtectedRouteProps) {
 
   if (loading) {
     return (
-      <Container sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
+      <Container
+        sx={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          minHeight: "60vh",
+        }}
+      >
         <CircularProgress />
       </Container>
     );
   }
 
-  if (error === 'Authentication required') {
+  if (error === "Authentication required") {
     return <Navigate to="/login" />;
   }
 
   if (!hasAccess) {
-    return <ErrorPage customMessage="You don't have permission to access this club" />;
+    return (
+      <ErrorPage customMessage="You don't have permission to access this club" />
+    );
   }
 
   return <>{children}</>;
 }
 
-export default ClubProtectedRoute; 
+export default ClubProtectedRoute;
