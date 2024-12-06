@@ -13,14 +13,15 @@ import {
   IconButton,
   Tooltip,
   Stack,
-  CircularProgress
+  CircularProgress,
+  Switch
 } from '@mui/material';
 import GroupsIcon from '@mui/icons-material/Groups';
 import AddIcon from '@mui/icons-material/Add';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import AdminBreadcrumbs from '../../components/AdminBreadcrumbs';
 import ActionButton from '../../components/ActionButton';
-import { readData } from '../../services/database';
+import { readData, updateData } from '../../services/database';
 import { useNavigate } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -28,6 +29,7 @@ interface Club {
   id: string;
   name: string;
   players?: { [key: string]: any };
+  disabledAt: number | null;
   sessions: Array<{
     id: string;
     clubId: string;
@@ -66,7 +68,8 @@ const AdminClubs: React.FC = () => {
               id,
               ...data,
               players: data.players || {},
-              sessions: clubSessions
+              sessions: clubSessions,
+              disabledAt: data.disabledAt || null
             };
           });
           setClubs(clubsArray);
@@ -87,6 +90,30 @@ const AdminClubs: React.FC = () => {
 
   const handleCreateClub = () => {
     navigate('/admin/clubs/create');
+  };
+
+  const handleToggleClub = async (clubId: string, currentDisabledAt: number | null) => {
+    try {
+      const newDisabledAt = currentDisabledAt ? null : Date.now();
+      
+      // Create an update object with the correct path
+      const updates = {
+        [`clubs/${clubId}/disabledAt`]: newDisabledAt
+      };
+      
+      await updateData('/', updates);
+      
+      // Update local state
+      setClubs(prevClubs => 
+        prevClubs.map(club => 
+          club.id === clubId 
+            ? { ...club, disabledAt: newDisabledAt }
+            : club
+        )
+      );
+    } catch (error) {
+      console.error('Error toggling club status:', error);
+    }
   };
 
   const getLastSessionDate = (sessions: Club['sessions']) => {
@@ -132,6 +159,7 @@ const AdminClubs: React.FC = () => {
                 <TableCell align="center">Players</TableCell>
                 <TableCell align="center">Sessions</TableCell>
                 <TableCell align="center">Last Session</TableCell>
+                <TableCell align="center">Status</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -142,7 +170,8 @@ const AdminClubs: React.FC = () => {
                     cursor: 'pointer',
                     '&:hover': {
                       bgcolor: 'rgba(0, 0, 0, 0.04)'
-                    }
+                    },
+                    opacity: club.disabledAt ? 0.7 : 1
                   }}
                   onClick={() => navigate(`/clubs/${club.id}`)}
                 >
@@ -174,6 +203,19 @@ const AdminClubs: React.FC = () => {
                   </TableCell>
                   <TableCell align="center">
                     {getLastSessionDate(club.sessions)}
+                  </TableCell>
+                  <TableCell align="center">
+                    <Tooltip title={club.disabledAt ? "Enable Club" : "Disable Club"}>
+                      <Box onClick={(e) => e.stopPropagation()}>
+                        <Switch
+                          checked={!club.disabledAt}
+                          onChange={(e) => {
+                            handleToggleClub(club.id, club.disabledAt);
+                          }}
+                          color="primary"
+                        />
+                      </Box>
+                    </Tooltip>
                   </TableCell>
                 </TableRow>
               ))}

@@ -6,6 +6,7 @@ export interface Club {
   name: string;
   description?: string;
   role: "admin" | "member";
+  disabledAt?: number | null;
 }
 
 export const getUserClubs = async (): Promise<Club[]> => {
@@ -19,13 +20,14 @@ export const getUserClubs = async (): Promise<Club[]> => {
     const clubs = Object.entries(user.clubs)
       .map(([clubId, clubData]) => {
         const club = clubsData[clubId];
-        if (!club) return null;
+        if (!club || club.disabledAt) return null;
 
         return {
           id: clubId,
           name: club.name || "Unknown Club",
           description: club.description,
           role: clubData.role,
+          disabledAt: club.disabledAt
         };
       })
       .filter((club): club is NonNullable<typeof club> => club !== null);
@@ -47,7 +49,8 @@ export const getClubDetails = async (clubId: string): Promise<Club | null> => {
     if (
       !clubData ||
       !user ||
-      (user.systemRole != "admin" && (!user.clubs || !user.clubs[clubId]))
+      (user.systemRole != "admin" && (!user.clubs || !user.clubs[clubId])) ||
+      clubData.disabledAt
     ) {
       return null;
     }
@@ -57,6 +60,7 @@ export const getClubDetails = async (clubId: string): Promise<Club | null> => {
       name: clubData.name,
       description: clubData.description,
       role: user.systemRole === "admin" ? "admin" : user.clubs[clubId].role,
+      disabledAt: clubData.disabledAt
     };
   } catch (error) {
     console.error("Error fetching club details:", error);

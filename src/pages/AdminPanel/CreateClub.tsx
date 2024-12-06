@@ -32,7 +32,8 @@ const CreateClub: React.FC = () => {
       const clubId = uuidv4();
       await writeData(`clubs/${clubId}`, {
         name: clubName.trim(),
-        createdAt: Date.now()
+        createdAt: Date.now(),
+        disabledAt: null
       });
 
       navigate('/admin/clubs');
