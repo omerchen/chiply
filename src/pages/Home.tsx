@@ -1,18 +1,69 @@
 import React, { useEffect, useState } from 'react';
-import { Container, Typography, Paper, Box } from '@mui/material';
+import { Container, Typography, Paper, Box, CircularProgress } from '@mui/material';
 import { getCurrentUser, User } from '../services/auth';
+import { readData } from '../services/database';
+import PlayerDashboard from '../components/PlayerDashboard';
 
 function Home() {
   const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [playerData, setPlayerData] = useState<{ id: string; clubIds: string[] } | null>(null);
 
   useEffect(() => {
-    const fetchUser = async () => {
-      const userData = await getCurrentUser();
-      setUser(userData);
+    const fetchData = async () => {
+      try {
+        const userData = await getCurrentUser();
+        setUser(userData);
+
+        if (userData?.email) {
+          // Get all players with matching email
+          const playersData = await readData('players');
+          if (playersData) {
+            const matchingPlayer = Object.entries(playersData)
+              .find(([_, player]) => player.email === userData.email);
+
+            if (matchingPlayer) {
+              const [playerId] = matchingPlayer;
+
+              // Get all clubs where this player is a member
+              const clubsData = await readData('clubs');
+              if (clubsData) {
+                const playerClubIds = Object.entries(clubsData)
+                  .filter(([_, club]) => club.players && club.players[playerId])
+                  .map(([clubId]) => clubId);
+
+                setPlayerData({
+                  id: playerId,
+                  clubIds: playerClubIds
+                });
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching data:', error);
+      } finally {
+        setLoading(false);
+      }
     };
-    fetchUser();
+
+    fetchData();
   }, []);
 
+  if (loading) {
+    return (
+      <Container sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
+        <CircularProgress />
+      </Container>
+    );
+  }
+
+  // If user is a player, show the player dashboard
+  if (playerData) {
+    return <PlayerDashboard playerId={playerData.id} clubIds={playerData.clubIds} />;
+  }
+
+  // Otherwise show the default welcome screen
   return (
     <Container maxWidth="md" sx={{ mt: 3, mb: 3 }}>
       <Paper 

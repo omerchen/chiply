@@ -19,6 +19,7 @@ import { db } from "../config/firebase";
 import { getCurrentUser } from "../services/auth";
 import EmptyState from "../components/EmptyState";
 import { getApproximateHands, formatHands } from "../utils/gameUtils";
+import { format } from 'date-fns';
 
 interface Session {
   id: string;
@@ -261,7 +262,7 @@ function MySessions() {
               {sessions.map((session) => (
                 <TableRow key={session.id}>
                   <TableCell>
-                    {new Date(session.date).toLocaleDateString()}
+                    {format(new Date(session.date), 'dd/MM/yyyy')}
                   </TableCell>
                   <TableCell>{session.clubName}</TableCell>
                   <TableCell>
