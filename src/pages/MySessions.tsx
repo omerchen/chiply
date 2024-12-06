@@ -18,6 +18,7 @@ import { ref, get } from "firebase/database";
 import { db } from "../config/firebase";
 import { getCurrentUser } from "../services/auth";
 import EmptyState from "../components/EmptyState";
+import { getApproximateHands, formatHands } from "../utils/gameUtils";
 
 interface Session {
   id: string;
@@ -60,6 +61,7 @@ interface ProcessedSession {
   profitLoss: number | null;
   clubName: string;
   playerCount: number;
+  hands: number | null;
 }
 
 function MySessions() {
@@ -125,8 +127,10 @@ function MySessions() {
               status = playerCashout ? "Completed" : "Playing";
             }
 
-            // Calculate play time
+            // Calculate play time and hands
             let playTime: string | null = null;
+            let hands: number | null = null;
+            
             if (playerBuyins.length > 0) {
               const firstBuyinTime = Math.min(...playerBuyins.map((b: any) => b.time));
               const endTime = playerCashout ? playerCashout.time : Date.now();
@@ -134,6 +138,13 @@ function MySessions() {
               const hours = Math.floor(playTimeMs / (1000 * 60 * 60));
               const minutes = Math.floor((playTimeMs % (1000 * 60 * 60)) / (1000 * 60));
               playTime = `${hours}h ${minutes}m`;
+              
+              // Calculate hands for both Playing and Completed sessions
+              const durationMinutes = Math.floor(playTimeMs / (1000 * 60));
+              const playerCount = Object.keys(session.data?.players || {}).length;
+              if (playerCount > 0) {
+                hands = getApproximateHands(playerCount, durationMinutes);
+              }
             }
 
             const buyinTotal = playerBuyins.reduce((sum: number, buyin: any) => sum + buyin.amount, 0);
@@ -151,6 +162,7 @@ function MySessions() {
               profitLoss: playerCashout ? playerCashout.stackValue - buyinTotal : null,
               clubName,
               playerCount,
+              hands,
             };
           })
           .filter((session): session is ProcessedSession => session !== null)
@@ -211,6 +223,7 @@ function MySessions() {
                 <TableCell>Status</TableCell>
                 <TableCell>Players</TableCell>
                 <TableCell>Play Time</TableCell>
+                <TableCell align="right">Hands</TableCell>
                 <TableCell align="right">Buy-ins</TableCell>
                 <TableCell align="right">Total Buy-in</TableCell>
                 <TableCell align="right">Final Stack</TableCell>
@@ -251,6 +264,7 @@ function MySessions() {
                   </TableCell>
                   <TableCell>{session.playerCount}</TableCell>
                   <TableCell>{session.playTime || "-"}</TableCell>
+                  <TableCell align="right">{formatHands(session.hands)}</TableCell>
                   <TableCell align="right">{session.buyinCount}</TableCell>
                   <TableCell align="right">₪{session.buyinTotal}</TableCell>
                   <TableCell align="right">

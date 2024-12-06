@@ -21,6 +21,30 @@ import ClubBreadcrumbs from "../components/ClubBreadcrumbs";
 import ActionButton from "../components/ActionButton";
 import { getCurrentUser } from "../services/auth";
 import { Player } from "../types/types";
+import { getApproximateHands, formatHands } from "../utils/gameUtils";
+
+interface SessionData {
+  players: {
+    [key: string]: {
+      addedAt: number;
+    };
+  };
+  buyins: {
+    [key: string]: {
+      playerId: string;
+      time: number;
+      amount: number;
+      isPaybox: boolean;
+    };
+  };
+  cashouts: {
+    [key: string]: {
+      playerId: string;
+      time: number;
+      cashout: number;
+    };
+  };
+}
 
 interface SessionDetails {
   id: string;
@@ -35,50 +59,43 @@ interface SessionDetails {
     };
   };
   status: string;
-  data: {
-    buyins: {
-      [key: string]: {
-        playerId: string;
-        time: number;
-        amount: number;
-        isPaybox: boolean;
-      };
-    };
-    cashouts: {
-      [key: string]: {
-        playerId: string;
-        time: number;
-        cashout: number;
-      };
-    };
-  };
+  data: SessionData;
 }
 
-function calculateSessionDuration(session: SessionDetails): string | null {
-  if (!session?.data?.buyins || !session?.data?.cashouts) return null;
+function calculateSessionDuration(session: SessionDetails): { duration: string | null; durationMinutes: number | null } {
+  if (!session?.data?.buyins) return { duration: null, durationMinutes: null };
 
   // Find first buyin time
   const buyinTimes = Object.values(session.data.buyins).map(
     (buyin) => buyin.time
   );
-  if (buyinTimes.length === 0) return null;
+  if (buyinTimes.length === 0) return { duration: null, durationMinutes: null };
   const firstBuyinTime = Math.min(...buyinTimes);
 
-  // Find last cashout time
-  const cashoutTimes = Object.values(session.data.cashouts).map(
-    (cashout) => cashout.time
-  );
-  if (cashoutTimes.length === 0) return null;
-  const lastCashoutTime = Math.max(...cashoutTimes);
+  // Find end time - either last cashout or current time
+  let endTime: number;
+  if (session.status === "close" && session.data.cashouts) {
+    const cashoutTimes = Object.values(session.data.cashouts).map(
+      (cashout) => cashout.time
+    );
+    if (cashoutTimes.length === 0) return { duration: null, durationMinutes: null };
+    endTime = Math.max(...cashoutTimes);
+  } else {
+    endTime = Date.now();
+  }
 
   // Calculate duration in milliseconds
-  const durationMs = lastCashoutTime - firstBuyinTime;
+  const durationMs = endTime - firstBuyinTime;
 
   // Convert to hours and minutes
   const hours = Math.floor(durationMs / (1000 * 60 * 60));
   const minutes = Math.floor((durationMs % (1000 * 60 * 60)) / (1000 * 60));
+  const durationMinutes = Math.floor(durationMs / (1000 * 60));
 
-  return `${hours} hours${minutes > 0 ? ` and ${minutes} minutes` : ""}`;
+  return {
+    duration: `${hours} hours${minutes > 0 ? ` and ${minutes} minutes` : ""}`,
+    durationMinutes
+  };
 }
 
 function ClubSessions() {
@@ -204,48 +221,61 @@ function ClubSessions() {
                 <TableRow>
                   <TableCell>Start Time</TableCell>
                   <TableCell>Stakes</TableCell>
+                  <TableCell>Players</TableCell>
                   <TableCell>Duration</TableCell>
+                  <TableCell align="right">Hands</TableCell>
                   <TableCell>Status</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
-                {sessions.map((session) => (
-                  <TableRow
-                    key={session.id}
-                    onClick={() =>
-                      navigate(`/clubs/${clubId}/sessions/${session.id}`)
-                    }
-                    sx={{
-                      "&:hover": {
-                        backgroundColor: "rgba(103, 58, 183, 0.04)",
-                        cursor: "pointer",
-                      },
-                    }}
-                  >
-                    <TableCell>
-                      {new Date(session.details.startTime).toLocaleString()}
-                    </TableCell>
-                    <TableCell>
-                      {session.details.stakes.smallBlind}/
-                      {session.details.stakes.bigBlind}
-                      {session.details.stakes.ante &&
-                        ` (${session.details.stakes.ante} ante)`}
-                    </TableCell>
-                    <TableCell>
-                      {session.status === "close" &&
-                        calculateSessionDuration(session)}
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        label={session.status.toUpperCase()}
-                        color={
-                          session.status === "open" ? "success" : "default"
-                        }
-                        size="small"
-                      />
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {sessions.map((session) => {
+                  const { duration, durationMinutes } = calculateSessionDuration(session);
+                  const playerCount = Object.keys(session.data?.players || {}).length;
+                  const hands = durationMinutes && playerCount > 0
+                    ? getApproximateHands(playerCount, durationMinutes)
+                    : null;
+
+                  return (
+                    <TableRow
+                      key={session.id}
+                      onClick={() =>
+                        navigate(`/clubs/${clubId}/sessions/${session.id}`)
+                      }
+                      sx={{
+                        "&:hover": {
+                          backgroundColor: "rgba(103, 58, 183, 0.04)",
+                          cursor: "pointer",
+                        },
+                      }}
+                    >
+                      <TableCell>
+                        {new Date(session.details.startTime).toLocaleString()}
+                      </TableCell>
+                      <TableCell>
+                        {session.details.stakes.smallBlind}/
+                        {session.details.stakes.bigBlind}
+                        {session.details.stakes.ante &&
+                          ` (${session.details.stakes.ante} ante)`}
+                      </TableCell>
+                      <TableCell>{playerCount}</TableCell>
+                      <TableCell>
+                        {duration || "-"}
+                      </TableCell>
+                      <TableCell align="right">
+                        {formatHands(hands)}
+                      </TableCell>
+                      <TableCell>
+                        <Chip
+                          label={session.status.toUpperCase()}
+                          color={
+                            session.status === "open" ? "success" : "default"
+                          }
+                          size="small"
+                        />
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </TableContainer>
