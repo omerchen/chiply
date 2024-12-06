@@ -29,6 +29,7 @@ import EditUser from "./pages/AdminPanel/EditUser";
 import CreateClub from "./pages/AdminPanel/CreateClub";
 import SignUp from './pages/SignUp';
 import SignUpVerify from './pages/SignUpVerify';
+import MySessions from "./pages/MySessions";
 
 function App() {
   return (
@@ -151,6 +152,7 @@ function App() {
               }
             />
           </Route>
+          <Route path="/sessions" element={<MySessions />} />
         </Route>
         <Route path="*" element={<ErrorPage />} />
       </Routes>

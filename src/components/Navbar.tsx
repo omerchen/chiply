@@ -17,10 +17,10 @@ import {
 } from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
 import LogoutIcon from "@mui/icons-material/Logout";
-import CasinoIcon from "@mui/icons-material/Casino";
+import { Event as EventIcon } from "@mui/icons-material";
 import HomeIcon from "@mui/icons-material/Home";
 import GroupsIcon from "@mui/icons-material/Groups";
-import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
+import AdminPanelSettingsIcon from "@mui/icons-material/AdminPanelSettings";
 import { useNavigate, useLocation } from "react-router-dom";
 import styled from "styled-components";
 import { User } from "../types/User";
@@ -48,7 +48,17 @@ const Navbar: React.FC<NavbarProps> = ({ onLogout, user }) => {
   const menuItems = [
     { text: "Home", path: "/", icon: <HomeIcon /> },
     { text: "Clubs", path: "/clubs", icon: <GroupsIcon /> },
-    ...(user.systemRole === 'admin' ? [{ text: "Admin Panel", path: "/admin", icon: <AdminPanelSettingsIcon /> }] : []),
+    { text: "Sessions", path: "/sessions", icon: <EventIcon /> },
+
+    ...(user.systemRole === "admin"
+      ? [
+          {
+            text: "Admin Panel",
+            path: "/admin",
+            icon: <AdminPanelSettingsIcon />,
+          },
+        ]
+      : []),
   ];
 
   const drawer = (
@@ -69,7 +79,9 @@ const Navbar: React.FC<NavbarProps> = ({ onLogout, user }) => {
         </ListItemButton>
       ))}
       <ListItemButton onClick={onLogout}>
-        <ListItemIcon><LogoutIcon /></ListItemIcon>
+        <ListItemIcon>
+          <LogoutIcon />
+        </ListItemIcon>
         <ListItemText primary="Logout" />
       </ListItemButton>
     </List>
