@@ -445,8 +445,10 @@ function ClubDashboard() {
 
       <Paper elevation={3} sx={{ p: 3, borderRadius: 2, mt: 3 }}>
         <Typography variant="h5" gutterBottom>
-          Players Statistics
+          Club Dashboard
         </Typography>
+
+        <Box sx={{ my: 3 }} />
 
         <Stack
           direction={{ xs: "column", sm: "row" }}
