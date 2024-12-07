@@ -93,6 +93,7 @@ function ClubPlayerDetails() {
         clubIds={[clubId!]} 
         defaultClubId={clubId!}
         isClubFilterReadOnly={true}
+        showManualSessionsToggle={false}
       />
     </Container>
   );

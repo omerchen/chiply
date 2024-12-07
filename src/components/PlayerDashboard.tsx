@@ -52,6 +52,7 @@ interface PlayerDashboardProps {
   clubIds: string[];
   defaultClubId?: string;
   isClubFilterReadOnly?: boolean;
+  showManualSessionsToggle?: boolean;
 }
 
 interface Player {
@@ -91,6 +92,7 @@ export default function PlayerDashboard({
   clubIds,
   defaultClubId,
   isClubFilterReadOnly = false,
+  showManualSessionsToggle = true,
 }: PlayerDashboardProps) {
   const [loading, setLoading] = useState(true);
   const [player, setPlayer] = useState<Player | null>(null);
@@ -113,7 +115,7 @@ export default function PlayerDashboard({
   const [selectedStakes, setSelectedStakes] = useState<string>("");
   const [availableStakes, setAvailableStakes] = useState<Stakes[]>([]);
   const [includeManualSessions, setIncludeManualSessions] =
-    useState<boolean>(true);
+    useState<boolean>(showManualSessionsToggle);
   const [manualSessionsData, setManualSessionsData] = useState<any>(null);
 
   // Fetch initial data
@@ -596,6 +598,11 @@ export default function PlayerDashboard({
     ];
   }, [filteredPlayerSessions, dashboardUnit]);
 
+  // Update includeManualSessions when showManualSessionsToggle changes
+  useEffect(() => {
+    setIncludeManualSessions(showManualSessionsToggle);
+  }, [showManualSessionsToggle]);
+
   if (loading) {
     return (
       <Container
@@ -782,29 +789,31 @@ export default function PlayerDashboard({
             </FormControl>
           </Box>
 
-          <Box
-            sx={{
-              minWidth: 200,
-              flex: 1,
-              display: "flex",
-              alignItems: "center",
-            }}
-          >
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={includeManualSessions}
-                  onChange={(e) => setIncludeManualSessions(e.target.checked)}
-                  color="primary"
-                />
-              }
-              label={
-                <Typography variant="body2" color="text.secondary">
-                  Include Manual Sessions
-                </Typography>
-              }
-            />
-          </Box>
+          {showManualSessionsToggle && (
+            <Box
+              sx={{
+                minWidth: 200,
+                flex: 1,
+                display: "flex",
+                alignItems: "center",
+              }}
+            >
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={includeManualSessions}
+                    onChange={(e) => setIncludeManualSessions(e.target.checked)}
+                    color="primary"
+                  />
+                }
+                label={
+                  <Typography variant="body2" color="text.secondary">
+                    Include Manual Sessions
+                  </Typography>
+                }
+              />
+            </Box>
+          )}
         </Stack>
 
         <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 4 }}>
