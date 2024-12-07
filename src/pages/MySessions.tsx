@@ -33,7 +33,11 @@ import { ref, get } from "firebase/database";
 import { db } from "../config/firebase";
 import { getCurrentUser } from "../services/auth";
 import EmptyState from "../components/EmptyState";
-import { getApproximateHands, formatHands, convertPlayTimeToMinutes } from "../utils/gameUtils";
+import {
+  getApproximateHands,
+  formatHands,
+  convertPlayTimeToMinutes,
+} from "../utils/gameUtils";
 import { format } from "date-fns";
 import { ManualSessionForm } from "../components/ManualSessionForm";
 
@@ -103,6 +107,7 @@ interface PlayerCashout {
   playerId: string;
   cashout: number;
   time: number;
+  stackValue: number;
 }
 
 type DateFilterType =
@@ -156,8 +161,9 @@ function MySessions() {
   const [loading, setLoading] = useState(true);
   const [sessions, setSessions] = useState<ProcessedSession[]>([]);
   const [showManualForm, setShowManualForm] = useState(false);
-  const [selectedManualSession, setSelectedManualSession] =
-    useState<ManualSession | undefined>(undefined);
+  const [selectedManualSession, setSelectedManualSession] = useState<
+    ManualSession | undefined
+  >(undefined);
   const [manualSessions, setManualSessions] = useState<ProcessedSession[]>([]);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [playerId, setPlayerId] = useState<string | null>(null);
@@ -403,8 +409,10 @@ function MySessions() {
   const formatRelativeTime = (date: number): string => {
     const now = new Date();
     const sessionDate = new Date(date);
-    const diffInDays = Math.floor((now.getTime() - sessionDate.getTime()) / (1000 * 60 * 60 * 24));
-    
+    const diffInDays = Math.floor(
+      (now.getTime() - sessionDate.getTime()) / (1000 * 60 * 60 * 24)
+    );
+
     let relativeText;
     if (diffInDays >= 14) {
       const weeks = Math.floor(diffInDays / 7);
@@ -412,7 +420,7 @@ function MySessions() {
     } else {
       relativeText = `${diffInDays}d ago`;
     }
-    
+
     return `${relativeText} (${format(sessionDate, "dd/MM")})`;
   };
 
@@ -522,7 +530,7 @@ function MySessions() {
             const finalStack =
               playerCashouts.length > 0
                 ? (playerCashouts[playerCashouts.length - 1] as PlayerCashout)
-                    .cashout
+                    .stackValue
                 : null;
             const profitLoss =
               finalStack !== null ? finalStack - totalBuyins : null;
@@ -534,7 +542,10 @@ function MySessions() {
             // Calculate hands based on play time
             const hands =
               playTime && playerCount > 0
-                ? getApproximateHands(playerCount, convertPlayTimeToMinutes(playTime))
+                ? getApproximateHands(
+                    playerCount,
+                    convertPlayTimeToMinutes(playTime)
+                  )
                 : null;
 
             return {
@@ -1186,7 +1197,10 @@ function MySessions() {
                 </InputLabel>
                 <Select
                   multiple
-                  value={(filters[columnId as keyof Filters] as DropdownFilter)?.selectedValues}
+                  value={
+                    (filters[columnId as keyof Filters] as DropdownFilter)
+                      ?.selectedValues
+                  }
                   onChange={handleDropdownFilterChange(
                     columnId as keyof Filters
                   )}
@@ -1216,9 +1230,9 @@ function MySessions() {
                     <MenuItem key={option} value={option}>
                       <Checkbox
                         checked={
-                          (filters[
-                            columnId as keyof Filters
-                          ] as DropdownFilter)?.selectedValues.indexOf(option) > -1
+                          (
+                            filters[columnId as keyof Filters] as DropdownFilter
+                          )?.selectedValues.indexOf(option) > -1
                         }
                       />
                       <ListItemText primary={option} />
@@ -1255,11 +1269,15 @@ function MySessions() {
               <FormControl fullWidth>
                 <InputLabel>Operator</InputLabel>
                 <Select
-                  value={(filters[columnId as keyof Filters] as NumericFilter)?.operator || ""}
+                  value={
+                    (filters[columnId as keyof Filters] as NumericFilter)
+                      ?.operator || ""
+                  }
                   onChange={(e) =>
                     handleNumericFilterChange(columnId as keyof Filters)(
                       e.target.value as NumericFilterOperator,
-                      (filters[columnId as keyof Filters] as NumericFilter)?.value || 0
+                      (filters[columnId as keyof Filters] as NumericFilter)
+                        ?.value || 0
                     )
                   }
                 >
@@ -1272,12 +1290,16 @@ function MySessions() {
                   <MenuItem value="lessThanOrEqual">≤</MenuItem>
                 </Select>
               </FormControl>
-              {(filters[columnId as keyof Filters] as NumericFilter)?.operator && (
+              {(filters[columnId as keyof Filters] as NumericFilter)
+                ?.operator && (
                 <TextField
                   type="number"
                   fullWidth
                   margin="normal"
-                  value={(filters[columnId as keyof Filters] as NumericFilter)?.value || ""}
+                  value={
+                    (filters[columnId as keyof Filters] as NumericFilter)
+                      ?.value || ""
+                  }
                   onChange={(e) =>
                     handleNumericFilterChange(columnId as keyof Filters)(
                       (filters[columnId as keyof Filters] as NumericFilter)

@@ -21,6 +21,8 @@ import {
   Grid,
   ToggleButtonGroup,
   ToggleButton,
+  Switch,
+  FormControlLabel,
 } from "@mui/material";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
@@ -110,6 +112,8 @@ export default function PlayerDashboard({
   const [dashboardUnit, setDashboardUnit] = useState<DashboardUnit>("cash");
   const [selectedStakes, setSelectedStakes] = useState<string>("");
   const [availableStakes, setAvailableStakes] = useState<Stakes[]>([]);
+  const [includeManualSessions, setIncludeManualSessions] = useState<boolean>(true);
+  const [manualSessionsData, setManualSessionsData] = useState<any>(null);
 
   // Fetch initial data
   useEffect(() => {
@@ -138,17 +142,57 @@ export default function PlayerDashboard({
         }
 
         // Fetch all sessions
-        const sessionsData = await readData("sessions");
-        if (sessionsData) {
-          const sessions = Object.entries(sessionsData)
-            .map(([id, data]) => ({
-              id,
-              ...(data as Omit<SessionDetails, "id">),
-            }))
-            .filter((session) => clubIds.includes(session.clubId));
+        const [sessionsData, fetchedManualSessionsData] = await Promise.all([
+          readData("sessions"),
+          readData(`players/${playerId}/manualPlayerSessions`)
+        ]);
 
-          setAllSessions(sessions);
-        }
+        setManualSessionsData(fetchedManualSessionsData);
+
+        const regularSessions = sessionsData ? Object.entries(sessionsData)
+          .map(([id, data]) => ({
+            id,
+            ...(data as Omit<SessionDetails, "id">),
+          }))
+          .filter((session) => clubIds.includes(session.clubId)) : [];
+
+        const manualSessions = fetchedManualSessionsData ? Object.entries(fetchedManualSessionsData)
+          .map(([id, data]: [string, any]) => {
+            const durationMinutes = data.duration * 60; // Convert hours to minutes
+            return {
+              id,
+              clubId: "",
+              details: {
+                type: "manual",
+                startTime: data.dateTime,
+                stakes: data.stakes
+              },
+              status: "close" as const,
+              data: {
+                buyins: {
+                  "1": {
+                    playerId,
+                    time: data.dateTime,
+                    amount: data.buyinTotal,
+                    isPaybox: false
+                  }
+                },
+                cashouts: {
+                  "1": {
+                    playerId,
+                    time: data.dateTime + (durationMinutes * 60 * 1000), // Convert minutes to milliseconds
+                    cashout: data.finalStack,
+                    stackValue: data.finalStack
+                  }
+                },
+                players: {
+                  [playerId]: true
+                }
+              }
+            };
+          }) : [];
+
+        setAllSessions([...regularSessions, ...manualSessions]);
       } catch (error) {
         console.error("Error fetching player dashboard data:", error);
       } finally {
@@ -182,16 +226,44 @@ export default function PlayerDashboard({
     setAvailableStakes(uniqueStakes);
   }, [allSessions]);
 
-  // Update filtered sessions when stakes filter changes
+  // Update filtered sessions when filters change
   useEffect(() => {
     const filterSessions = () => {
       const filteredSessions = allSessions
         .map((session) => {
           // Process session data for the player
-          const playerSessionData = processPlayerSessionData(session, playerId);
-          if (!playerSessionData) return null;
+          const playerSessionData = session.details.type === 'manual' && manualSessionsData
+            ? {
+                time: session.details.startTime,
+                endTime: session.data.cashouts["1"].time,
+                buyinsCount: 1,
+                buyinsTotal: session.data.buyins["1"].amount,
+                stackValue: session.data.cashouts["1"].stackValue,
+                profit: session.data.cashouts["1"].stackValue - session.data.buyins["1"].amount,
+                profitBB: (session.data.cashouts["1"].stackValue - session.data.buyins["1"].amount) / session.details.stakes.bigBlind,
+                durationMinutes: Math.floor((session.data.cashouts["1"].time - session.details.startTime) / (1000 * 60)),
+                approximateHands: getApproximateHands(
+                  manualSessionsData[session.id].numberOfPlayers,
+                  manualSessionsData[session.id].duration * 60
+                ),
+                bb: session.details.stakes.bigBlind
+              }
+            : (() => {
+                const data = processPlayerSessionData(session, playerId);
+                if (!data) return null;
+                // Override profit calculations to use stackValue
+                const profit = data.stackValue - data.buyinsTotal;
+                return {
+                  ...data,
+                  profit,
+                  profitBB: profit / data.bb
+                };
+              })();
 
-          // Add session details to the player session data for reference
+          if (!playerSessionData) {
+            return null;
+          }
+
           return {
             ...playerSessionData,
             sessionId: session.id,
@@ -207,18 +279,23 @@ export default function PlayerDashboard({
           } => {
             if (!sessionData) return false;
 
-            // Club filter
-            if (selectedClubId && sessionData.clubId !== selectedClubId) {
+            // Get the full session data
+            const session = allSessions.find((s) => s.id === sessionData.sessionId);
+            if (!session) return false;
+
+            // Manual sessions filter
+            const isManualSession = session.details.type === 'manual';
+            if (!includeManualSessions && isManualSession) {
+              return false;
+            }
+
+            // Club filter - only apply to non-manual sessions
+            if (selectedClubId && !isManualSession && session.clubId !== selectedClubId) {
               return false;
             }
 
             // Stakes filter
             if (selectedStakes) {
-              const session = allSessions.find(
-                (s) => s.id === sessionData.sessionId
-              );
-              if (!session) return false;
-
               const stakesStr = formatStakes(session.details.stakes);
               if (stakesStr !== selectedStakes) {
                 return false;
@@ -226,7 +303,7 @@ export default function PlayerDashboard({
             }
 
             // Date range filter
-            const sessionDate = new Date(sessionData.time);
+            const sessionDate = new Date(session.details.startTime);
 
             if (dateRangeOption !== "all") {
               let startDate: Date | null = null;
@@ -255,7 +332,9 @@ export default function PlayerDashboard({
                   start: startOfDay(startDate),
                   end: endOfDay(endDate),
                 });
-                if (!isInRange) return false;
+                if (!isInRange) {
+                  return false;
+                }
               }
             }
 
@@ -274,6 +353,8 @@ export default function PlayerDashboard({
     dateRangeOption,
     customDateRange,
     playerId,
+    includeManualSessions,
+    manualSessionsData,
   ]);
 
   const formatStakes = (stakes: Stakes): string => {
@@ -651,6 +732,23 @@ export default function PlayerDashboard({
                 <MenuItem value="custom">Custom Range</MenuItem>
               </Select>
             </FormControl>
+          </Box>
+
+          <Box sx={{ minWidth: 200, flex: 1, display: "flex", alignItems: "center" }}>
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={includeManualSessions}
+                  onChange={(e) => setIncludeManualSessions(e.target.checked)}
+                  color="primary"
+                />
+              }
+              label={
+                <Typography variant="body2" color="text.secondary">
+                  Include Manual Sessions
+                </Typography>
+              }
+            />
           </Box>
         </Stack>
 
