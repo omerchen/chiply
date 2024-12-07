@@ -15,6 +15,7 @@ import ClubSessionDetails from "./pages/ClubSessionDetails";
 import NewClubSession from "./pages/NewClubSession";
 import NewClubPlayer from "./pages/NewClubPlayer";
 import ClubPlayerDetails from "./pages/ClubPlayerDetails";
+import ClubDashboard from "./pages/ClubDashboard";
 import Login from "./pages/Login";
 import ErrorPage from "./pages/ErrorPage";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -80,6 +81,14 @@ function App() {
                 element={
                   <ClubProtectedRoute>
                     <ClubDetails />
+                  </ClubProtectedRoute>
+                }
+              />
+              <Route
+                path=":clubId/dashboard"
+                element={
+                  <ClubProtectedRoute>
+                    <ClubDashboard />
                   </ClubProtectedRoute>
                 }
               />
