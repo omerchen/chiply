@@ -33,38 +33,18 @@ import { ref, get } from "firebase/database";
 import { db } from "../config/firebase";
 import { getCurrentUser } from "../services/auth";
 import EmptyState from "../components/EmptyState";
-import { getApproximateHands, formatHands } from "../utils/gameUtils";
+import { getApproximateHands, formatHands, convertPlayTimeToMinutes } from "../utils/gameUtils";
 import { format } from "date-fns";
 import { ManualSessionForm } from "../components/ManualSessionForm";
 
+interface SessionDetails {
+  stakes: {
+    bigBlind: number;
+  };
+}
+
 interface Session {
-  id: string;
-  details: {
-    startTime: number;
-    type: string;
-    stakes: {
-      smallBlind: number;
-      bigBlind: number;
-    };
-  };
-  status: "open" | "close";
-  data: {
-    buyins: {
-      [key: string]: {
-        playerId: string;
-        amount: number;
-        time: number;
-      };
-    };
-    cashouts: {
-      [key: string]: {
-        playerId: string;
-        stackValue: number;
-        cashout: number;
-        time: number;
-      };
-    };
-  };
+  details: SessionDetails;
 }
 
 interface ProcessedSession {
@@ -107,6 +87,8 @@ interface ManualSession {
   buyinCount: number;
   buyinTotal: number;
   finalStack: number;
+  numberOfPlayers: number;
+  location?: string;
 }
 
 interface ManualSessionFormProps {
@@ -115,6 +97,12 @@ interface ManualSessionFormProps {
   initialData?: ManualSession;
   onSubmit: () => void;
   playerId: string;
+}
+
+interface PlayerCashout {
+  playerId: string;
+  cashout: number;
+  time: number;
 }
 
 type DateFilterType =
@@ -169,7 +157,7 @@ function MySessions() {
   const [sessions, setSessions] = useState<ProcessedSession[]>([]);
   const [showManualForm, setShowManualForm] = useState(false);
   const [selectedManualSession, setSelectedManualSession] =
-    useState<ManualSession | null>(null);
+    useState<ManualSession | undefined>(undefined);
   const [manualSessions, setManualSessions] = useState<ProcessedSession[]>([]);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [playerId, setPlayerId] = useState<string | null>(null);
@@ -203,22 +191,38 @@ function MySessions() {
   const [availableStatuses] = useState(["Playing", "Completed"]);
 
   // Add sorting state
-  type SortDirection = 'asc' | 'desc';
-  type SortField = 'date' | 'club' | 'stakes' | 'type' | 'status' | 'players' | 'playTime' | 'hands' | 'buyins' | 'totalBuyins' | 'finalStack' | 'profitLoss' | 'bbProfitLoss';
-  
+  type SortDirection = "asc" | "desc";
+  type SortField =
+    | "date"
+    | "club"
+    | "stakes"
+    | "type"
+    | "status"
+    | "players"
+    | "playTime"
+    | "hands"
+    | "buyins"
+    | "totalBuyins"
+    | "finalStack"
+    | "profitLoss"
+    | "bbProfitLoss";
+
   const [sortConfig, setSortConfig] = useState<{
     field: SortField;
     direction: SortDirection;
   }>({
-    field: 'date',
-    direction: 'desc'
+    field: "date",
+    direction: "desc",
   });
 
   // Handle sort
   const handleSort = (field: SortField) => {
-    setSortConfig(prevConfig => ({
+    setSortConfig((prevConfig) => ({
       field,
-      direction: prevConfig.field === field && prevConfig.direction === 'desc' ? 'asc' : 'desc'
+      direction:
+        prevConfig.field === field && prevConfig.direction === "desc"
+          ? "asc"
+          : "desc",
     }));
   };
 
@@ -338,40 +342,47 @@ function MySessions() {
 
   // Sort filtered sessions
   const sortedSessions = [...filteredSessions].sort((a, b) => {
-    const direction = sortConfig.direction === 'asc' ? 1 : -1;
-    
+    const direction = sortConfig.direction === "asc" ? 1 : -1;
+
     switch (sortConfig.field) {
-      case 'date':
+      case "date":
         return (a.date - b.date) * direction;
-      case 'club':
-        return (a.clubName || '').localeCompare(b.clubName || '') * direction;
-      case 'stakes':
+      case "club":
+        return (a.clubName || "").localeCompare(b.clubName || "") * direction;
+      case "stakes":
         return (a.stakes.bigBlind - b.stakes.bigBlind) * direction;
-      case 'type':
-        return (a.isManual ? 'Manual' : 'In-app').localeCompare(b.isManual ? 'Manual' : 'In-app') * direction;
-      case 'status':
+      case "type":
+        return (
+          (a.isManual ? "Manual" : "In-app").localeCompare(
+            b.isManual ? "Manual" : "In-app"
+          ) * direction
+        );
+      case "status":
         return a.status.localeCompare(b.status) * direction;
-      case 'players':
-        return ((Number(a.playerCount) || 0) - (Number(b.playerCount) || 0)) * direction;
-      case 'playTime':
+      case "players":
+        return (
+          ((Number(a.playerCount) || 0) - (Number(b.playerCount) || 0)) *
+          direction
+        );
+      case "playTime":
         const getMinutes = (time: string | null) => {
           if (!time) return 0;
           const match = time.match(/(\d+)h\s*(?:(\d+)m)?/);
           if (!match) return 0;
-          return (parseInt(match[1]) * 60) + (parseInt(match[2]) || 0);
+          return parseInt(match[1]) * 60 + (parseInt(match[2]) || 0);
         };
         return (getMinutes(a.playTime) - getMinutes(b.playTime)) * direction;
-      case 'hands':
+      case "hands":
         return ((a.hands || 0) - (b.hands || 0)) * direction;
-      case 'buyins':
+      case "buyins":
         return (a.buyinCount - b.buyinCount) * direction;
-      case 'totalBuyins':
+      case "totalBuyins":
         return (a.buyinTotal - b.buyinTotal) * direction;
-      case 'finalStack':
+      case "finalStack":
         return ((a.finalStack || 0) - (b.finalStack || 0)) * direction;
-      case 'profitLoss':
+      case "profitLoss":
         return ((a.profitLoss || 0) - (b.profitLoss || 0)) * direction;
-      case 'bbProfitLoss':
+      case "bbProfitLoss":
         return ((a.profitLossBB || 0) - (b.profitLossBB || 0)) * direction;
       default:
         return 0;
@@ -383,9 +394,26 @@ function MySessions() {
     if (sortConfig.field !== field) return null;
     return (
       <Box component="span" sx={{ ml: 0.5 }}>
-        {sortConfig.direction === 'asc' ? '↑' : '↓'}
+        {sortConfig.direction === "asc" ? "↑" : "↓"}
       </Box>
     );
+  };
+
+  // Helper function to format relative time
+  const formatRelativeTime = (date: number): string => {
+    const now = new Date();
+    const sessionDate = new Date(date);
+    const diffInDays = Math.floor((now.getTime() - sessionDate.getTime()) / (1000 * 60 * 60 * 24));
+    
+    let relativeText;
+    if (diffInDays >= 14) {
+      const weeks = Math.floor(diffInDays / 7);
+      relativeText = `${weeks}w ago`;
+    } else {
+      relativeText = `${diffInDays}d ago`;
+    }
+    
+    return `${relativeText} (${format(sessionDate, "dd/MM")})`;
   };
 
   useEffect(() => {
@@ -445,56 +473,69 @@ function MySessions() {
             if (!isPlayerParticipant) return null;
 
             // Filter buy-ins and cashouts for this player
-            const playerBuyins = Object.values(session.data?.buyins || {}).filter(
-              (buyin: any) => buyin.playerId === userPlayerIds[0]
-            );
-            const playerCashouts = Object.values(session.data?.cashouts || {}).filter(
-              (cashout: any) => cashout.playerId === userPlayerIds[0]
-            );
+            const playerBuyins = Object.values(
+              session.data?.buyins || {}
+            ).filter((buyin: any) => buyin.playerId === userPlayerIds[0]);
+            const playerCashouts = Object.values(
+              session.data?.cashouts || {}
+            ).filter((cashout: any) => cashout.playerId === userPlayerIds[0]);
 
             // Calculate play time
             let playTime = null;
             if (playerBuyins.length > 0) {
-              const firstBuyinTime = Math.min(...playerBuyins.map((b: any) => b.time));
+              const firstBuyinTime = Math.min(
+                ...playerBuyins.map((b: any) => b.time)
+              );
               let lastTime: number;
-              
+
               if (playerCashouts.length > 0) {
                 lastTime = Math.max(...playerCashouts.map((c: any) => c.time));
-              } else if (session.status === 'open') {
+              } else if (session.status === "open") {
                 lastTime = Date.now();
               } else {
                 lastTime = firstBuyinTime;
               }
-              
+
               const durationMinutes = (lastTime - firstBuyinTime) / (1000 * 60);
               const hours = Math.floor(durationMinutes / 60);
               const minutes = Math.floor(durationMinutes % 60);
-              
+
               if (hours > 0 && minutes > 0) {
                 playTime = `${hours}h ${minutes}m`;
               } else if (hours > 0) {
                 playTime = `${hours}h`;
-              } else if (minutes > 0) {
+              } else {
                 playTime = `${minutes}m`;
               }
             }
 
             // Get number of players directly from the players object
-            const playerCount = session.data?.players ? Object.keys(session.data.players).length : 0;
+            const playerCount = session.data?.players
+              ? Object.keys(session.data.players).length
+              : 0;
 
             const totalBuyins = playerBuyins.reduce(
               (sum: number, buyin: any) => sum + buyin.amount,
               0
             );
             const buyinCount = playerBuyins.length;
-            const finalStack = playerCashouts.length > 0 ? playerCashouts[playerCashouts.length - 1].cashout : null;
-            const profitLoss = finalStack !== null ? finalStack - totalBuyins : null;
-            const profitLossBB = profitLoss !== null ? profitLoss / session.details.stakes.bigBlind : null;
+            const finalStack =
+              playerCashouts.length > 0
+                ? (playerCashouts[playerCashouts.length - 1] as PlayerCashout)
+                    .cashout
+                : null;
+            const profitLoss =
+              finalStack !== null ? finalStack - totalBuyins : null;
+            const profitLossBB =
+              profitLoss !== null
+                ? profitLoss / session.details.stakes.bigBlind
+                : null;
 
             // Calculate hands based on play time
-            const hands = playTime && playerCount > 0
-              ? getApproximateHands(playerCount, parseFloat(playTime) * 60)
-              : null;
+            const hands =
+              playTime && playerCount > 0
+                ? getApproximateHands(playerCount, convertPlayTimeToMinutes(playTime))
+                : null;
 
             return {
               id: sessionId,
@@ -540,7 +581,9 @@ function MySessions() {
                 id,
                 date: session.dateTime,
                 status: "Completed",
-                playTime: `${Math.floor(session.duration)}h ${Math.floor((session.duration % 1) * 60)}m`,
+                playTime: `${Math.floor(session.duration)}h ${Math.floor(
+                  (session.duration % 1) * 60
+                )}m`,
                 buyinCount: session.buyinCount,
                 buyinTotal: session.buyinTotal,
                 finalStack: session.finalStack,
@@ -559,12 +602,14 @@ function MySessions() {
 
             // Combine and sort all sessions, ensuring no duplicates by ID
             const allSessions = [...processedSessions];
-            processedManualSessions.forEach(manualSession => {
-              if (!allSessions.some(session => session.id === manualSession.id)) {
+            processedManualSessions.forEach((manualSession) => {
+              if (
+                !allSessions.some((session) => session.id === manualSession.id)
+              ) {
                 allSessions.push(manualSession);
               }
             });
-            
+
             setSessions(allSessions.sort((a, b) => b.date - a.date));
           } else {
             setSessions(processedSessions.sort((a, b) => b.date - a.date));
@@ -682,14 +727,17 @@ function MySessions() {
 
   const handleManualFormClose = () => {
     setShowManualForm(false);
-    setSelectedManualSession(null);
+    setSelectedManualSession(undefined);
   };
 
   const getFilterIcon = (columnId: string) => {
     return (
       <IconButton
         size="small"
-        onClick={(event) => handleFilterClick(columnId)(event)}
+        onClick={(event) => {
+          event.stopPropagation();
+          handleFilterClick(columnId)(event);
+        }}
       >
         <FilterListIcon
           fontSize="small"
@@ -704,10 +752,7 @@ function MySessions() {
                 ? "primary"
                 : "inherit"
               : filters[columnId as keyof Filters] &&
-                (filters[columnId as keyof Filters] as NumericFilter)
-                  .operator &&
-                (filters[columnId as keyof Filters] as NumericFilter)
-                  .operator !== ""
+                (filters[columnId as keyof Filters] as NumericFilter).operator
               ? "primary"
               : "inherit"
           }
@@ -770,121 +815,121 @@ function MySessions() {
           <Table>
             <TableHead>
               <TableRow>
-                <TableCell 
-                  sx={{ minWidth: 200, cursor: 'pointer' }}
-                  onClick={() => handleSort('date')}
+                <TableCell
+                  sx={{ minWidth: 200, cursor: "pointer" }}
+                  onClick={() => handleSort("date")}
                 >
                   <Stack direction="row" alignItems="center">
-                    Date {renderSortIndicator('date')}
-                    {getFilterIcon('date')}
+                    Date {renderSortIndicator("date")}
+                    {getFilterIcon("date")}
                   </Stack>
                 </TableCell>
-                <TableCell 
-                  sx={{ minWidth: 200, cursor: 'pointer' }}
-                  onClick={() => handleSort('club')}
+                <TableCell
+                  sx={{ minWidth: 200, cursor: "pointer" }}
+                  onClick={() => handleSort("club")}
                 >
                   <Stack direction="row" alignItems="center">
-                    Club {renderSortIndicator('club')}
-                    {getFilterIcon('club')}
+                    Club {renderSortIndicator("club")}
+                    {getFilterIcon("club")}
                   </Stack>
                 </TableCell>
-                <TableCell 
-                  sx={{ minWidth: 200, cursor: 'pointer' }}
-                  onClick={() => handleSort('stakes')}
+                <TableCell
+                  sx={{ minWidth: 200, cursor: "pointer" }}
+                  onClick={() => handleSort("stakes")}
                 >
                   <Stack direction="row" alignItems="center">
-                    Stakes {renderSortIndicator('stakes')}
-                    {getFilterIcon('stakes')}
+                    Stakes {renderSortIndicator("stakes")}
+                    {getFilterIcon("stakes")}
                   </Stack>
                 </TableCell>
-                <TableCell 
-                  sx={{ minWidth: 200, cursor: 'pointer' }}
-                  onClick={() => handleSort('type')}
+                <TableCell
+                  sx={{ minWidth: 200, cursor: "pointer" }}
+                  onClick={() => handleSort("type")}
                 >
                   <Stack direction="row" alignItems="center">
-                    Type {renderSortIndicator('type')}
-                    {getFilterIcon('type')}
+                    Type {renderSortIndicator("type")}
+                    {getFilterIcon("type")}
                   </Stack>
                 </TableCell>
-                <TableCell 
-                  sx={{ minWidth: 200, cursor: 'pointer' }}
-                  onClick={() => handleSort('status')}
+                <TableCell
+                  sx={{ minWidth: 200, cursor: "pointer" }}
+                  onClick={() => handleSort("status")}
                 >
                   <Stack direction="row" alignItems="center">
-                    Status {renderSortIndicator('status')}
-                    {getFilterIcon('status')}
+                    Status {renderSortIndicator("status")}
+                    {getFilterIcon("status")}
                   </Stack>
                 </TableCell>
-                <TableCell 
-                  sx={{ minWidth: 200, cursor: 'pointer' }}
-                  onClick={() => handleSort('players')}
+                <TableCell
+                  sx={{ minWidth: 200, cursor: "pointer" }}
+                  onClick={() => handleSort("players")}
                 >
                   <Stack direction="row" alignItems="center">
-                    Players {renderSortIndicator('players')}
-                    {getFilterIcon('players')}
+                    Players {renderSortIndicator("players")}
+                    {getFilterIcon("players")}
                   </Stack>
                 </TableCell>
-                <TableCell 
-                  sx={{ minWidth: 200, cursor: 'pointer' }}
-                  onClick={() => handleSort('playTime')}
+                <TableCell
+                  sx={{ minWidth: 200, cursor: "pointer" }}
+                  onClick={() => handleSort("playTime")}
                 >
                   <Stack direction="row" alignItems="center">
-                    Play Time {renderSortIndicator('playTime')}
-                    {getFilterIcon('playTime')}
+                    Play Time {renderSortIndicator("playTime")}
+                    {getFilterIcon("playTime")}
                   </Stack>
                 </TableCell>
-                <TableCell 
-                  sx={{ minWidth: 200, cursor: 'pointer' }}
-                  onClick={() => handleSort('hands')}
+                <TableCell
+                  sx={{ minWidth: 200, cursor: "pointer" }}
+                  onClick={() => handleSort("hands")}
                 >
                   <Stack direction="row" alignItems="center">
-                    Hands {renderSortIndicator('hands')}
-                    {getFilterIcon('hands')}
+                    Hands {renderSortIndicator("hands")}
+                    {getFilterIcon("hands")}
                   </Stack>
                 </TableCell>
-                <TableCell 
-                  sx={{ minWidth: 200, cursor: 'pointer' }}
-                  onClick={() => handleSort('buyins')}
+                <TableCell
+                  sx={{ minWidth: 200, cursor: "pointer" }}
+                  onClick={() => handleSort("buyins")}
                 >
                   <Stack direction="row" alignItems="center">
-                    Buy-ins {renderSortIndicator('buyins')}
-                    {getFilterIcon('buyins')}
+                    Buy-ins {renderSortIndicator("buyins")}
+                    {getFilterIcon("buyins")}
                   </Stack>
                 </TableCell>
-                <TableCell 
-                  sx={{ minWidth: 200, cursor: 'pointer' }}
-                  onClick={() => handleSort('totalBuyins')}
+                <TableCell
+                  sx={{ minWidth: 200, cursor: "pointer" }}
+                  onClick={() => handleSort("totalBuyins")}
                 >
                   <Stack direction="row" alignItems="center">
-                    Total Buy-in {renderSortIndicator('totalBuyins')}
-                    {getFilterIcon('totalBuyins')}
+                    Total Buy-in {renderSortIndicator("totalBuyins")}
+                    {getFilterIcon("totalBuyins")}
                   </Stack>
                 </TableCell>
-                <TableCell 
-                  sx={{ minWidth: 200, cursor: 'pointer' }}
-                  onClick={() => handleSort('finalStack')}
+                <TableCell
+                  sx={{ minWidth: 200, cursor: "pointer" }}
+                  onClick={() => handleSort("finalStack")}
                 >
                   <Stack direction="row" alignItems="center">
-                    Final Stack {renderSortIndicator('finalStack')}
-                    {getFilterIcon('finalStack')}
+                    Final Stack {renderSortIndicator("finalStack")}
+                    {getFilterIcon("finalStack")}
                   </Stack>
                 </TableCell>
-                <TableCell 
-                  sx={{ minWidth: 200, cursor: 'pointer' }}
-                  onClick={() => handleSort('profitLoss')}
+                <TableCell
+                  sx={{ minWidth: 200, cursor: "pointer" }}
+                  onClick={() => handleSort("profitLoss")}
                 >
                   <Stack direction="row" alignItems="center">
-                    P&L {renderSortIndicator('profitLoss')}
-                    {getFilterIcon('profitLoss')}
+                    P&L {renderSortIndicator("profitLoss")}
+                    {getFilterIcon("profitLoss")}
                   </Stack>
                 </TableCell>
-                <TableCell 
-                  sx={{ minWidth: 200, cursor: 'pointer' }}
-                  onClick={() => handleSort('bbProfitLoss')}
+                <TableCell
+                  sx={{ minWidth: 200, cursor: "pointer" }}
+                  onClick={() => handleSort("bbProfitLoss")}
                 >
                   <Stack direction="row" alignItems="center">
-                    BB P&L {renderSortIndicator('bbProfitLoss')}
-                    {getFilterIcon('bbProfitLoss')}
+                    BB P&L {renderSortIndicator("bbProfitLoss")}
+                    {getFilterIcon("bbProfitLoss")}
                   </Stack>
                 </TableCell>
               </TableRow>
@@ -902,7 +947,7 @@ function MySessions() {
                   }}
                 >
                   <TableCell sx={{ minWidth: 200 }}>
-                    {format(new Date(session.date), "dd/MM/yyyy")}
+                    {formatRelativeTime(session.date)}
                   </TableCell>
                   <TableCell sx={{ minWidth: 200 }}>
                     {session.clubName}
@@ -1141,7 +1186,7 @@ function MySessions() {
                 </InputLabel>
                 <Select
                   multiple
-                  value={filters[columnId as keyof Filters].selectedValues}
+                  value={(filters[columnId as keyof Filters] as DropdownFilter)?.selectedValues}
                   onChange={handleDropdownFilterChange(
                     columnId as keyof Filters
                   )}
@@ -1154,7 +1199,7 @@ function MySessions() {
                   }
                   renderValue={(selected) => (
                     <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
-                      {selected.map((value) => (
+                      {selected.map((value: string) => (
                         <Chip key={value} label={value} />
                       ))}
                     </Box>
@@ -1171,9 +1216,9 @@ function MySessions() {
                     <MenuItem key={option} value={option}>
                       <Checkbox
                         checked={
-                          filters[
+                          (filters[
                             columnId as keyof Filters
-                          ].selectedValues.indexOf(option) > -1
+                          ] as DropdownFilter)?.selectedValues.indexOf(option) > -1
                         }
                       />
                       <ListItemText primary={option} />
@@ -1210,11 +1255,11 @@ function MySessions() {
               <FormControl fullWidth>
                 <InputLabel>Operator</InputLabel>
                 <Select
-                  value={filters[columnId as keyof Filters]?.operator || ""}
+                  value={(filters[columnId as keyof Filters] as NumericFilter)?.operator || ""}
                   onChange={(e) =>
                     handleNumericFilterChange(columnId as keyof Filters)(
                       e.target.value as NumericFilterOperator,
-                      filters[columnId as keyof Filters]?.value || 0
+                      (filters[columnId as keyof Filters] as NumericFilter)?.value || 0
                     )
                   }
                 >
@@ -1227,15 +1272,15 @@ function MySessions() {
                   <MenuItem value="lessThanOrEqual">≤</MenuItem>
                 </Select>
               </FormControl>
-              {filters[columnId as keyof Filters]?.operator && (
+              {(filters[columnId as keyof Filters] as NumericFilter)?.operator && (
                 <TextField
                   type="number"
                   fullWidth
                   margin="normal"
-                  value={filters[columnId as keyof Filters]?.value || ""}
+                  value={(filters[columnId as keyof Filters] as NumericFilter)?.value || ""}
                   onChange={(e) =>
                     handleNumericFilterChange(columnId as keyof Filters)(
-                      filters[columnId as keyof Filters]
+                      (filters[columnId as keyof Filters] as NumericFilter)
                         ?.operator as NumericFilterOperator,
                       parseFloat(e.target.value)
                     )
@@ -1261,4 +1306,3 @@ function MySessions() {
 }
 
 export default MySessions;
-

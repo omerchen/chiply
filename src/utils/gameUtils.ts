@@ -1,4 +1,22 @@
 /**
+ * Converts a play time string (e.g., "1h 5m" or "30m") to minutes
+ * 
+ * @param playTime - The play time string to convert
+ * @returns The number of minutes
+ */
+export const convertPlayTimeToMinutes = (playTime: string | null): number => {
+  if (!playTime) return 0;
+  
+  const match = playTime.match(/(?:(\d+)h\s*)?(?:(\d+)m)?/);
+  if (!match) return 0;
+  
+  const hours = parseInt(match[1] || '0');
+  const minutes = parseInt(match[2] || '0');
+  
+  return hours * 60 + minutes;
+};
+
+/**
  * Calculates the approximate number of hands played in a poker session based on duration and player count.
  * Formula: FLOOR({Duration in Hours}*30*10/{Players Count})
  * 
