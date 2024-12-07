@@ -1,16 +1,29 @@
-import React from 'react';
-import { Paper, Typography, Box } from '@mui/material';
+import React, { useState } from 'react';
+import { Paper, Typography, Box, Popover, IconButton } from '@mui/material';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 
 interface MetricCardProps {
   title: string;
   value: string | number;
   valueColor?: string;
+  tooltip?: string;
 }
 
-export default function MetricCard({ title, value, valueColor }: MetricCardProps) {
+export default function MetricCard({ title, value, valueColor, tooltip }: MetricCardProps) {
+  const [anchorEl, setAnchorEl] = useState<HTMLButtonElement | null>(null);
+  const open = Boolean(anchorEl);
+
+  const handleClick = (event: React.MouseEvent<HTMLButtonElement>) => {
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handleClose = () => {
+    setAnchorEl(null);
+  };
+
   // Split the value into number and unit (₪, BB, or ~)
   const valueStr = value.toString();
-  const match = valueStr.match(/^([₪~])?(-?\d+(?:,\d{3})*(?:\.\d+)?)(?: (BB))?$/);
+  const match = valueStr.match(/^([₪~])?(-?\d+(?:,\d{3})*(?:\.\d+)?)(?: (BB|%))?$/);
   
   let prefix = '';
   let number = valueStr;
@@ -22,7 +35,7 @@ export default function MetricCard({ title, value, valueColor }: MetricCardProps
     suffix = match[3] || '';
   }
 
-  return (
+  const content = (
     <Paper 
       elevation={0} 
       sx={{ 
@@ -34,19 +47,72 @@ export default function MetricCard({ title, value, valueColor }: MetricCardProps
         height: '100%',
         display: 'flex',
         flexDirection: 'column',
-        gap: 4
+        gap: 2,
+        position: 'relative'
       }}
     >
-      <Typography 
-        variant="h6" 
-        sx={{ 
-          color: 'text.secondary',
-          fontSize: '1rem',
-          fontWeight: 500
-        }}
-      >
-        {title}
-      </Typography>
+      <Box sx={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'flex-start'
+      }}>
+        <Typography 
+          variant="h6" 
+          sx={{ 
+            color: 'text.secondary',
+            fontSize: '1rem',
+            fontWeight: 500
+          }}
+        >
+          {title}
+        </Typography>
+        {tooltip && (
+          <>
+            <IconButton 
+              size="small" 
+              onClick={handleClick}
+              sx={{ 
+                color: 'text.secondary',
+                opacity: 0.7,
+                '&:hover': {
+                  opacity: 1,
+                  backgroundColor: 'rgba(0, 0, 0, 0.04)'
+                }
+              }}
+            >
+              <InfoOutlinedIcon fontSize="small" />
+            </IconButton>
+            <Popover
+              open={open}
+              anchorEl={anchorEl}
+              onClose={handleClose}
+              anchorOrigin={{
+                vertical: 'bottom',
+                horizontal: 'right',
+              }}
+              transformOrigin={{
+                vertical: 'top',
+                horizontal: 'right',
+              }}
+              sx={{
+                '& .MuiPopover-paper': {
+                  maxWidth: '80vw',
+                  p: 2,
+                  bgcolor: 'rgba(0, 0, 0, 0.8)',
+                  color: 'white',
+                  borderRadius: 2,
+                  fontSize: '0.875rem',
+                  boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+                }
+              }}
+            >
+              <Typography sx={{ fontSize: 'inherit' }}>
+                {tooltip}
+              </Typography>
+            </Popover>
+          </>
+        )}
+      </Box>
       
       <Box sx={{ 
         display: 'flex', 
@@ -92,4 +158,6 @@ export default function MetricCard({ title, value, valueColor }: MetricCardProps
       </Box>
     </Paper>
   );
+
+  return content;
 } 

@@ -381,50 +381,59 @@ export default function PlayerDashboard({
     <Container maxWidth="lg" sx={{ mt: 3, mb: 3 }}>
       <Paper elevation={3} sx={{ p: 4, borderRadius: 2 }}>
         <Stack
-          direction="row"
+          direction={{ xs: "column", sm: "row" }}
           justifyContent="space-between"
-          alignItems="center"
+          alignItems={{ xs: "flex-start", sm: "center" }}
+          spacing={2}
           sx={{ mb: 4 }}
         >
           <Typography
             variant="h4"
             sx={{
               fontWeight: "bold",
-              background: "linear-gradient(45deg, #673ab7, #9c27b0)",
+              background: "linear-gradient(45deg, #673ab7 30%, #9c27b0 90%)",
               WebkitBackgroundClip: "text",
               WebkitTextFillColor: "transparent",
+              fontSize: { xs: "1.75rem", sm: "2.125rem" },
+              lineHeight: 1.2,
+              mb: { xs: 1, sm: 0 }
             }}
           >
-            Player Dashboard: {player.firstName} {player.lastName}
+            Player Dashboard:
+            <Box component="span" sx={{ display: { xs: "block", sm: "inline" }, ml: { sm: 1 } }}>
+              {player.firstName} {player.lastName}
+            </Box>
           </Typography>
 
-          <Box>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-              Dashboard Unit
-            </Typography>
-            <ToggleButtonGroup
-              value={dashboardUnit}
-              exclusive
-              onChange={handleUnitChange}
-              aria-label="dashboard unit"
-              size="small"
-              sx={{
-                "& .MuiToggleButton-root": {
-                  textTransform: "none",
-                  px: 3,
-                  "&.Mui-selected": {
-                    backgroundColor: "#673ab7",
-                    color: "white",
-                    "&:hover": {
-                      backgroundColor: "#563098",
+          <Box sx={{ width: { xs: "100%", sm: "auto" } }}>
+            <Box>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                Dashboard Unit
+              </Typography>
+              <ToggleButtonGroup
+                value={dashboardUnit}
+                exclusive
+                onChange={handleUnitChange}
+                aria-label="dashboard unit"
+                size="small"
+                sx={{
+                  "& .MuiToggleButton-root": {
+                    textTransform: "none",
+                    px: 3,
+                    "&.Mui-selected": {
+                      backgroundColor: "#673ab7",
+                      color: "white",
+                      "&:hover": {
+                        backgroundColor: "#563098",
+                      },
                     },
                   },
-                },
-              }}
-            >
-              <ToggleButton value="cash">Cash</ToggleButton>
-              <ToggleButton value="bb">BB</ToggleButton>
-            </ToggleButtonGroup>
+                }}
+              >
+                <ToggleButton value="cash">Cash</ToggleButton>
+                <ToggleButton value="bb">BB</ToggleButton>
+              </ToggleButtonGroup>
+            </Box>
           </Box>
         </Stack>
 
@@ -525,7 +534,8 @@ export default function PlayerDashboard({
           <Grid item xs={12} sm={6}>
             <MetricCard 
               title="Total Sessions" 
-              value={filteredPlayerSessions.length} 
+              value={filteredPlayerSessions.length}
+              tooltip="Total number of poker sessions played during the selected time period"
             />
           </Grid>
           <Grid item xs={12} sm={6}>
@@ -537,6 +547,7 @@ export default function PlayerDashboard({
                 );
                 return `~${new Intl.NumberFormat('en-US').format(totalHands)}`;
               })()}
+              tooltip="Approximate number of poker hands played during the selected time period (~ indicates an estimate)"
             />
           </Grid>
           <Grid item xs={12} sm={6}>
@@ -557,6 +568,7 @@ export default function PlayerDashboard({
                 );
                 return totalProfit > 0 ? 'success.main' : totalProfit < 0 ? 'error.main' : 'text.primary';
               })()}
+              tooltip={`Total profit/loss in ${dashboardUnit === "cash" ? "Israeli Shekels" : "Big Blinds"} across all sessions in the selected time period`}
             />
           </Grid>
           <Grid item xs={12} sm={6}>
@@ -586,6 +598,7 @@ export default function PlayerDashboard({
                 );
                 return totalProfit > 0 ? 'success.main' : totalProfit < 0 ? 'error.main' : 'text.primary';
               })()}
+              tooltip={`Average profit/loss per 100 hands played in ${dashboardUnit === "cash" ? "Israeli Shekels" : "Big Blinds"} - a key metric for measuring win rate`}
             />
           </Grid>
           <Grid item xs={12}>
@@ -657,6 +670,7 @@ export default function PlayerDashboard({
                 
                 return roi > 0 ? 'success.main' : roi < 0 ? 'error.main' : 'text.primary';
               })()}
+              tooltip={`Return on Investment - Percentage of profit/loss relative to total buy-ins in ${dashboardUnit === "cash" ? "cash" : "Big Blinds"}. Shows how efficiently your money is working.`}
             />
           </Grid>
         </Grid>
