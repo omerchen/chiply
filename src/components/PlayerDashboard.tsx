@@ -112,7 +112,8 @@ export default function PlayerDashboard({
   const [dashboardUnit, setDashboardUnit] = useState<DashboardUnit>("cash");
   const [selectedStakes, setSelectedStakes] = useState<string>("");
   const [availableStakes, setAvailableStakes] = useState<Stakes[]>([]);
-  const [includeManualSessions, setIncludeManualSessions] = useState<boolean>(true);
+  const [includeManualSessions, setIncludeManualSessions] =
+    useState<boolean>(true);
   const [manualSessionsData, setManualSessionsData] = useState<any>(null);
 
   // Fetch initial data
@@ -144,53 +145,58 @@ export default function PlayerDashboard({
         // Fetch all sessions
         const [sessionsData, fetchedManualSessionsData] = await Promise.all([
           readData("sessions"),
-          readData(`players/${playerId}/manualPlayerSessions`)
+          readData(`players/${playerId}/manualPlayerSessions`),
         ]);
 
         setManualSessionsData(fetchedManualSessionsData);
 
-        const regularSessions = sessionsData ? Object.entries(sessionsData)
-          .map(([id, data]) => ({
-            id,
-            ...(data as Omit<SessionDetails, "id">),
-          }))
-          .filter((session) => clubIds.includes(session.clubId)) : [];
+        const regularSessions = sessionsData
+          ? Object.entries(sessionsData)
+              .map(([id, data]) => ({
+                id,
+                ...(data as Omit<SessionDetails, "id">),
+              }))
+              .filter((session) => clubIds.includes(session.clubId))
+          : [];
 
-        const manualSessions = fetchedManualSessionsData ? Object.entries(fetchedManualSessionsData)
-          .map(([id, data]: [string, any]) => {
-            const durationMinutes = data.duration * 60; // Convert hours to minutes
-            return {
-              id,
-              clubId: "",
-              details: {
-                type: "manual",
-                startTime: data.dateTime,
-                stakes: data.stakes
-              },
-              status: "close" as const,
-              data: {
-                buyins: {
-                  "1": {
-                    playerId,
-                    time: data.dateTime,
-                    amount: data.buyinTotal,
-                    isPaybox: false
-                  }
-                },
-                cashouts: {
-                  "1": {
-                    playerId,
-                    time: data.dateTime + (durationMinutes * 60 * 1000), // Convert minutes to milliseconds
-                    cashout: data.finalStack,
-                    stackValue: data.finalStack
-                  }
-                },
-                players: {
-                  [playerId]: true
-                }
+        const manualSessions = fetchedManualSessionsData
+          ? Object.entries(fetchedManualSessionsData).map(
+              ([id, data]: [string, any]) => {
+                const durationMinutes = data.duration * 60; // Convert hours to minutes
+                return {
+                  id,
+                  clubId: "",
+                  details: {
+                    type: "manual",
+                    startTime: data.dateTime,
+                    stakes: data.stakes,
+                  },
+                  status: "close" as const,
+                  data: {
+                    buyins: {
+                      "1": {
+                        playerId,
+                        time: data.dateTime,
+                        amount: data.buyinTotal,
+                        isPaybox: false,
+                      },
+                    },
+                    cashouts: {
+                      "1": {
+                        playerId,
+                        time: data.dateTime + durationMinutes * 60 * 1000, // Convert minutes to milliseconds
+                        cashout: data.finalStack,
+                        stackValue: data.finalStack,
+                      },
+                    },
+                    players: {
+                      [playerId]: true,
+                    },
+                  },
+                };
               }
-            };
-          }) : [];
+            )
+          : [];
 
         setAllSessions([...regularSessions, ...manualSessions]);
       } catch (error) {
@@ -232,33 +238,43 @@ export default function PlayerDashboard({
       const filteredSessions = allSessions
         .map((session) => {
           // Process session data for the player
-          const playerSessionData = session.details.type === 'manual' && manualSessionsData
-            ? {
-                time: session.details.startTime,
-                endTime: session.data.cashouts["1"].time,
-                buyinsCount: 1,
-                buyinsTotal: session.data.buyins["1"].amount,
-                stackValue: session.data.cashouts["1"].stackValue,
-                profit: session.data.cashouts["1"].stackValue - session.data.buyins["1"].amount,
-                profitBB: (session.data.cashouts["1"].stackValue - session.data.buyins["1"].amount) / session.details.stakes.bigBlind,
-                durationMinutes: Math.floor((session.data.cashouts["1"].time - session.details.startTime) / (1000 * 60)),
-                approximateHands: getApproximateHands(
-                  manualSessionsData[session.id].numberOfPlayers,
-                  manualSessionsData[session.id].duration * 60
-                ),
-                bb: session.details.stakes.bigBlind
-              }
-            : (() => {
-                const data = processPlayerSessionData(session, playerId);
-                if (!data) return null;
-                // Override profit calculations to use stackValue
-                const profit = data.stackValue - data.buyinsTotal;
-                return {
-                  ...data,
-                  profit,
-                  profitBB: profit / data.bb
-                };
-              })();
+          const playerSessionData =
+            session.details.type === "manual" && manualSessionsData
+              ? {
+                  time: session.details.startTime,
+                  endTime: session.data.cashouts["1"].time,
+                  buyinsCount: 1,
+                  buyinsTotal: session.data.buyins["1"].amount,
+                  stackValue: session.data.cashouts["1"].stackValue,
+                  profit:
+                    session.data.cashouts["1"].stackValue -
+                    session.data.buyins["1"].amount,
+                  profitBB:
+                    (session.data.cashouts["1"].stackValue -
+                      session.data.buyins["1"].amount) /
+                    session.details.stakes.bigBlind,
+                  durationMinutes: Math.floor(
+                    (session.data.cashouts["1"].time -
+                      session.details.startTime) /
+                      (1000 * 60)
+                  ),
+                  approximateHands: getApproximateHands(
+                    manualSessionsData[session.id].numberOfPlayers,
+                    manualSessionsData[session.id].duration * 60
+                  ),
+                  bb: session.details.stakes.bigBlind,
+                }
+              : (() => {
+                  const data = processPlayerSessionData(session, playerId);
+                  if (!data) return null;
+                  // Override profit calculations to use stackValue
+                  const profit = data.stackValue - data.buyinsTotal;
+                  return {
+                    ...data,
+                    profit,
+                    profitBB: profit / data.bb,
+                  };
+                })();
 
           if (!playerSessionData) {
             return null;
@@ -280,17 +296,23 @@ export default function PlayerDashboard({
             if (!sessionData) return false;
 
             // Get the full session data
-            const session = allSessions.find((s) => s.id === sessionData.sessionId);
+            const session = allSessions.find(
+              (s) => s.id === sessionData.sessionId
+            );
             if (!session) return false;
 
             // Manual sessions filter
-            const isManualSession = session.details.type === 'manual';
+            const isManualSession = session.details.type === "manual";
             if (!includeManualSessions && isManualSession) {
               return false;
             }
 
             // Club filter - only apply to non-manual sessions
-            if (selectedClubId && !isManualSession && session.clubId !== selectedClubId) {
+            if (
+              selectedClubId &&
+              !isManualSession &&
+              session.clubId !== selectedClubId
+            ) {
               return false;
             }
 
@@ -607,26 +629,33 @@ export default function PlayerDashboard({
           spacing={2}
           sx={{ mb: 4 }}
         >
-          <Typography
-            variant="h4"
-            sx={{
-              fontWeight: "bold",
-              background: "linear-gradient(45deg, #673ab7 30%, #9c27b0 90%)",
-              WebkitBackgroundClip: "text",
-              WebkitTextFillColor: "transparent",
-              fontSize: { xs: "1.75rem", sm: "2.125rem" },
-              lineHeight: 1.2,
-              mb: { xs: 1, sm: 0 },
-            }}
-          >
-            Player Dashboard:
-            <Box
-              component="span"
-              sx={{ display: { xs: "block", sm: "inline" }, ml: { sm: 1 } }}
+          <Box>
+            <Typography
+              variant="h4"
+              sx={{
+                fontWeight: "bold",
+                background: "linear-gradient(45deg, #673ab7 30%, #9c27b0 90%)",
+                WebkitBackgroundClip: "text",
+                WebkitTextFillColor: "transparent",
+                fontSize: { xs: "1.5rem", sm: "2.125rem" },
+                lineHeight: 1.2,
+                mb: { xs: 0.5, sm: 0 },
+              }}
+            >
+              Player Dashboard
+            </Typography>
+            <Typography
+              variant="h5"
+              sx={{
+                fontWeight: "medium",
+                color: "text.secondary",
+                fontSize: { xs: "1.25rem", sm: "1.5rem" },
+                lineHeight: 1.2,
+              }}
             >
               {player.firstName} {player.lastName}
-            </Box>
-          </Typography>
+            </Typography>
+          </Box>
 
           <Box sx={{ width: { xs: "100%", sm: "auto" } }}>
             <Box>
@@ -734,7 +763,14 @@ export default function PlayerDashboard({
             </FormControl>
           </Box>
 
-          <Box sx={{ minWidth: 200, flex: 1, display: "flex", alignItems: "center" }}>
+          <Box
+            sx={{
+              minWidth: 200,
+              flex: 1,
+              display: "flex",
+              alignItems: "center",
+            }}
+          >
             <FormControlLabel
               control={
                 <Switch

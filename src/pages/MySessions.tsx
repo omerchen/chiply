@@ -817,8 +817,15 @@ function MySessions() {
             variant="contained"
             startIcon={<AddIcon />}
             onClick={() => setShowManualForm(true)}
+            sx={{
+              '& .MuiButton-startIcon': {
+                margin: { xs: '0', sm: '-4px 8px -4px -4px' }
+              }
+            }}
           >
-            Add Manual Session
+            <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
+              Add Manual Session
+            </Box>
           </Button>
         </Stack>
 
