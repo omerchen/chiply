@@ -17,6 +17,8 @@
     "@mui/material": "^6.1.9",
     "@mui/x-date-pickers": "^7.23.1",
     "@mui/x-date-pickers-pro": "^7.23.1",
+    "@nivo/line": "^0.88.0",
+    "@nivo/pie": "^0.88.0",
     "@types/styled-components": "^5.1.34",
     "date-fns": "^2.29.3",
     "dayjs": "^1.11.13",

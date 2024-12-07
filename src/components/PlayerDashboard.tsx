@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   Container,
   Typography,
@@ -39,6 +39,9 @@ import { processPlayerSessionData } from "../utils/sessionUtils";
 import { getApproximateHands } from "../utils/gameUtils";
 import EditIcon from "@mui/icons-material/Edit";
 import MetricCard from "../components/MetricCard";
+import { ResponsivePie } from "@nivo/pie";
+import PieChartCard from "./PieChartCard";
+import TimelineCard from "./TimelineCard";
 
 type DashboardUnit = "cash" | "bb";
 
@@ -69,15 +72,29 @@ interface Stakes {
   ante?: number;
 }
 
+interface PieChartData {
+  id: string;
+  label: string;
+  value: number;
+  color?: string;
+}
+
+interface ExtendedPlayerSessionData extends PlayerSessionData {
+  clubId: string;
+  sessionId: string;
+}
+
 export default function PlayerDashboard({
   playerId,
   clubIds,
   defaultClubId,
-  isClubFilterReadOnly = false
+  isClubFilterReadOnly = false,
 }: PlayerDashboardProps) {
   const [loading, setLoading] = useState(true);
   const [player, setPlayer] = useState<Player | null>(null);
-  const [selectedClubId, setSelectedClubId] = useState<string>(defaultClubId || "");
+  const [selectedClubId, setSelectedClubId] = useState<string>(
+    defaultClubId || ""
+  );
   const [clubs, setClubs] = useState<{ id: string; name: string }[]>([]);
   const [dateRangeOption, setDateRangeOption] =
     useState<DateRangeOption>("all");
@@ -343,16 +360,138 @@ export default function PlayerDashboard({
     }, 0);
 
     return {
-      value: dashboardUnit === "cash"
-        ? `₪${totalProfit}`
-        : `${totalProfit.toFixed(1)} BB`,
-      color: totalProfit > 0
-        ? 'success.main'
-        : totalProfit < 0
-        ? 'error.main'
-        : 'text.primary'
+      value:
+        dashboardUnit === "cash"
+          ? `₪${totalProfit}`
+          : `${totalProfit.toFixed(1)} BB`,
+      color:
+        totalProfit > 0
+          ? "success.main"
+          : totalProfit < 0
+          ? "error.main"
+          : "text.primary",
     };
   };
+
+  const getSessionsByClub = useMemo((): PieChartData[] => {
+    const sessionsByClub = (
+      filteredPlayerSessions as ExtendedPlayerSessionData[]
+    ).reduce((acc: { [key: string]: number }, session) => {
+      const clubName =
+        clubs.find((club) => club.id === session.clubId)?.name ||
+        "Unknown Club";
+      acc[clubName] = (acc[clubName] || 0) + 1;
+      return acc;
+    }, {});
+
+    return Object.entries(sessionsByClub).map(([clubName, count]) => ({
+      id: clubName,
+      label: clubName,
+      value: count,
+    }));
+  }, [filteredPlayerSessions, clubs]);
+
+  const getSessionsByStakes = useMemo((): PieChartData[] => {
+    const sessionsByStakes = (
+      filteredPlayerSessions as ExtendedPlayerSessionData[]
+    ).reduce((acc: { [key: string]: number }, session) => {
+      const stakes = allSessions.find((s) => s.id === session.sessionId)
+        ?.details.stakes;
+      if (!stakes) return acc;
+
+      const stakesStr = `${stakes.smallBlind}/${stakes.bigBlind}${
+        stakes.ante ? ` (${stakes.ante})` : ""
+      }`;
+      acc[stakesStr] = (acc[stakesStr] || 0) + 1;
+      return acc;
+    }, {});
+
+    return Object.entries(sessionsByStakes).map(([stakes, count]) => ({
+      id: stakes,
+      label: stakes,
+      value: count,
+    }));
+  }, [filteredPlayerSessions, allSessions]);
+
+  const commonPieProps = {
+    margin: { top: 20, right: 20, bottom: 20, left: 20 },
+    innerRadius: 0.5,
+    padAngle: 0.7,
+    cornerRadius: 3,
+    activeOuterRadiusOffset: 8,
+    borderWidth: 1,
+    borderColor: {
+      from: "color",
+      modifiers: [["darker", 0.2]],
+    },
+    arcLinkLabelsSkipAngle: 10,
+    arcLinkLabelsTextColor: "#333333",
+    arcLinkLabelsThickness: 2,
+    arcLinkLabelsColor: { from: "color" },
+    arcLabelsSkipAngle: 10,
+    arcLabelsTextColor: {
+      from: "color",
+      modifiers: [["darker", 2]],
+    },
+    theme: {
+      fontSize: 14,
+      fontFamily: '"Roboto","Helvetica","Arial",sans-serif',
+    },
+  };
+
+  const getTimelineData = useMemo(() => {
+    // If there are no sessions, return empty data with current date range
+    if (filteredPlayerSessions.length === 0) {
+      const now = new Date();
+      const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      return [
+        {
+          id: "Total P&L",
+          data: [
+            {
+              x: thirtyDaysAgo.getTime(),
+              y: 0,
+            },
+            {
+              x: now.getTime(),
+              y: 0,
+            },
+          ],
+        },
+      ];
+    }
+
+    // Sort sessions by date
+    const sortedSessions = [...filteredPlayerSessions].sort(
+      (a, b) => new Date(a.time).getTime() - new Date(b.time).getTime()
+    );
+
+    // Calculate cumulative profit
+    let cumulativeProfit = 0;
+    const timelineData = sortedSessions.map((session) => {
+      cumulativeProfit +=
+        dashboardUnit === "cash" ? session.profit : session.profitBB;
+      return {
+        x: new Date(session.time).getTime(),
+        y: cumulativeProfit,
+      };
+    });
+
+    // Add a "Break Even" point at the start
+    timelineData.unshift({
+      x: new Date(
+        new Date(timelineData[0].x).getTime() - 24 * 60 * 60 * 1000
+      ).getTime(),
+      y: 0,
+    });
+
+    return [
+      {
+        id: "Total P&L",
+        data: timelineData,
+      },
+    ];
+  }, [filteredPlayerSessions, dashboardUnit]);
 
   if (loading) {
     return (
@@ -396,11 +535,14 @@ export default function PlayerDashboard({
               WebkitTextFillColor: "transparent",
               fontSize: { xs: "1.75rem", sm: "2.125rem" },
               lineHeight: 1.2,
-              mb: { xs: 1, sm: 0 }
+              mb: { xs: 1, sm: 0 },
             }}
           >
             Player Dashboard:
-            <Box component="span" sx={{ display: { xs: "block", sm: "inline" }, ml: { sm: 1 } }}>
+            <Box
+              component="span"
+              sx={{ display: { xs: "block", sm: "inline" }, ml: { sm: 1 } }}
+            >
               {player.firstName} {player.lastName}
             </Box>
           </Typography>
@@ -532,145 +674,277 @@ export default function PlayerDashboard({
         {/* Metrics Grid */}
         <Grid container spacing={3} sx={{ mb: 4 }}>
           <Grid item xs={12} sm={6}>
-            <MetricCard 
-              title="Total Sessions" 
+            <MetricCard
+              title="Total Sessions"
               value={filteredPlayerSessions.length}
               tooltip="Total number of poker sessions played during the selected time period"
             />
           </Grid>
           <Grid item xs={12} sm={6}>
-            <MetricCard 
+            <MetricCard
               title="Total Hands"
               value={(() => {
-                const totalHands = filteredPlayerSessions.reduce((sum, session) => 
-                  sum + (session.approximateHands || 0), 0
+                const totalHands = filteredPlayerSessions.reduce(
+                  (sum, session) => sum + (session.approximateHands || 0),
+                  0
                 );
-                return `~${new Intl.NumberFormat('en-US').format(totalHands)}`;
+                return `~${new Intl.NumberFormat("en-US").format(totalHands)}`;
               })()}
               tooltip="Approximate number of poker hands played during the selected time period (~ indicates an estimate)"
             />
           </Grid>
           <Grid item xs={12} sm={6}>
-            <MetricCard 
+            <MetricCard
               title="Total Profit"
               value={(() => {
-                const totalProfit = filteredPlayerSessions.reduce((sum, session) => 
-                  dashboardUnit === "cash" ? sum + session.profit : sum + session.profitBB, 0
+                const totalProfit = filteredPlayerSessions.reduce(
+                  (sum, session) =>
+                    dashboardUnit === "cash"
+                      ? sum + session.profit
+                      : sum + session.profitBB,
+                  0
                 );
-                const formattedNumber = new Intl.NumberFormat('en-US').format(
-                  dashboardUnit === "cash" ? totalProfit : parseFloat(totalProfit.toFixed(1))
+                const formattedNumber = new Intl.NumberFormat("en-US").format(
+                  dashboardUnit === "cash"
+                    ? totalProfit
+                    : parseFloat(totalProfit.toFixed(1))
                 );
-                return dashboardUnit === "cash" ? `₪${formattedNumber}` : `${formattedNumber} BB`;
+                return dashboardUnit === "cash"
+                  ? `₪${formattedNumber}`
+                  : `${formattedNumber} BB`;
               })()}
               valueColor={(() => {
-                const totalProfit = filteredPlayerSessions.reduce((sum, session) => 
-                  dashboardUnit === "cash" ? sum + session.profit : sum + session.profitBB, 0
+                const totalProfit = filteredPlayerSessions.reduce(
+                  (sum, session) =>
+                    dashboardUnit === "cash"
+                      ? sum + session.profit
+                      : sum + session.profitBB,
+                  0
                 );
-                return totalProfit > 0 ? 'success.main' : totalProfit < 0 ? 'error.main' : 'text.primary';
+                return totalProfit > 0
+                  ? "success.main"
+                  : totalProfit < 0
+                  ? "error.main"
+                  : "text.primary";
               })()}
-              tooltip={`Total profit/loss in ${dashboardUnit === "cash" ? "Israeli Shekels" : "Big Blinds"} across all sessions in the selected time period`}
+              tooltip={`Total profit/loss in ${
+                dashboardUnit === "cash" ? "Israeli Shekels" : "Big Blinds"
+              } across all sessions in the selected time period`}
             />
           </Grid>
           <Grid item xs={12} sm={6}>
-            <MetricCard 
+            <MetricCard
               title="Profit / 100 Hands"
               value={(() => {
-                const totalProfit = filteredPlayerSessions.reduce((sum, session) => 
-                  dashboardUnit === "cash" ? sum + session.profit : sum + session.profitBB, 0
+                const totalProfit = filteredPlayerSessions.reduce(
+                  (sum, session) =>
+                    dashboardUnit === "cash"
+                      ? sum + session.profit
+                      : sum + session.profitBB,
+                  0
                 );
-                const totalHands = filteredPlayerSessions.reduce((sum, session) => 
-                  sum + (session.approximateHands || 0), 0
+                const totalHands = filteredPlayerSessions.reduce(
+                  (sum, session) => sum + (session.approximateHands || 0),
+                  0
                 );
-                
+
                 if (totalHands === 0) return "-";
-                
+
                 const profitPer100Hands = (totalProfit / totalHands) * 100;
-                const formattedNumber = new Intl.NumberFormat('en-US', {
+                const formattedNumber = new Intl.NumberFormat("en-US", {
                   minimumFractionDigits: 1,
-                  maximumFractionDigits: 1
-                }).format(dashboardUnit === "cash" ? profitPer100Hands : parseFloat(profitPer100Hands.toFixed(1)));
-                
-                return dashboardUnit === "cash" ? `₪${formattedNumber}` : `${formattedNumber} BB`;
+                  maximumFractionDigits: 1,
+                }).format(
+                  dashboardUnit === "cash"
+                    ? profitPer100Hands
+                    : parseFloat(profitPer100Hands.toFixed(1))
+                );
+
+                return dashboardUnit === "cash"
+                  ? `₪${formattedNumber}`
+                  : `${formattedNumber} BB`;
               })()}
               valueColor={(() => {
-                const totalProfit = filteredPlayerSessions.reduce((sum, session) => 
-                  dashboardUnit === "cash" ? sum + session.profit : sum + session.profitBB, 0
+                const totalProfit = filteredPlayerSessions.reduce(
+                  (sum, session) =>
+                    dashboardUnit === "cash"
+                      ? sum + session.profit
+                      : sum + session.profitBB,
+                  0
                 );
-                return totalProfit > 0 ? 'success.main' : totalProfit < 0 ? 'error.main' : 'text.primary';
+                return totalProfit > 0
+                  ? "success.main"
+                  : totalProfit < 0
+                  ? "error.main"
+                  : "text.primary";
               })()}
-              tooltip={`Average profit/loss per 100 hands played in ${dashboardUnit === "cash" ? "Israeli Shekels" : "Big Blinds"} - a key metric for measuring win rate`}
+              tooltip={`Average profit/loss per 100 hands played in ${
+                dashboardUnit === "cash" ? "Israeli Shekels" : "Big Blinds"
+              } - a key metric for measuring win rate`}
             />
           </Grid>
-          <Grid item xs={12}>
-            <MetricCard 
+          <Grid item xs={12} sm={6}>
+            <MetricCard
               title="ROI"
               value={(() => {
                 if (dashboardUnit === "cash") {
-                  const totalBuyins = filteredPlayerSessions.reduce((sum, session) => 
-                    sum + session.buyinsTotal, 0
+                  const totalBuyins = filteredPlayerSessions.reduce(
+                    (sum, session) => sum + session.buyinsTotal,
+                    0
                   );
-                  const totalStackValue = filteredPlayerSessions.reduce((sum, session) => 
-                    sum + (session.stackValue || 0), 0
+                  const totalStackValue = filteredPlayerSessions.reduce(
+                    (sum, session) => sum + (session.stackValue || 0),
+                    0
                   );
-                  
+
                   if (totalBuyins === 0) return "0%";
-                  
-                  const roi = ((totalStackValue - totalBuyins) / totalBuyins) * 100;
-                  const formattedNumber = new Intl.NumberFormat('en-US', {
+
+                  const roi =
+                    ((totalStackValue - totalBuyins) / totalBuyins) * 100;
+                  const formattedNumber = new Intl.NumberFormat("en-US", {
                     minimumFractionDigits: 1,
                     maximumFractionDigits: 1,
-                    signDisplay: 'exceptZero'
+                    signDisplay: "exceptZero",
                   }).format(roi);
-                  
+
                   return `${formattedNumber}%`;
                 } else {
                   // For BB mode, use profitBB and convert buyins to BB
-                  const totalBuyinsBB = filteredPlayerSessions.reduce((sum, session) => 
-                    sum + (session.buyinsTotal / session.bb), 0
+                  const totalBuyinsBB = filteredPlayerSessions.reduce(
+                    (sum, session) => sum + session.buyinsTotal / session.bb,
+                    0
                   );
-                  const totalProfitBB = filteredPlayerSessions.reduce((sum, session) => 
-                    sum + session.profitBB, 0
+                  const totalProfitBB = filteredPlayerSessions.reduce(
+                    (sum, session) => sum + session.profitBB,
+                    0
                   );
-                  
+
                   if (totalBuyinsBB === 0) return "0%";
-                  
+
                   const roiBB = (totalProfitBB / totalBuyinsBB) * 100;
-                  const formattedNumber = new Intl.NumberFormat('en-US', {
+                  const formattedNumber = new Intl.NumberFormat("en-US", {
                     minimumFractionDigits: 1,
                     maximumFractionDigits: 1,
-                    signDisplay: 'exceptZero'
+                    signDisplay: "exceptZero",
                   }).format(roiBB);
-                  
+
                   return `${formattedNumber}%`;
                 }
               })()}
               valueColor={(() => {
                 let roi;
                 if (dashboardUnit === "cash") {
-                  const totalBuyins = filteredPlayerSessions.reduce((sum, session) => 
-                    sum + session.buyinsTotal, 0
+                  const totalBuyins = filteredPlayerSessions.reduce(
+                    (sum, session) => sum + session.buyinsTotal,
+                    0
                   );
-                  const totalStackValue = filteredPlayerSessions.reduce((sum, session) => 
-                    sum + (session.stackValue || 0), 0
+                  const totalStackValue = filteredPlayerSessions.reduce(
+                    (sum, session) => sum + (session.stackValue || 0),
+                    0
                   );
-                  
-                  if (totalBuyins === 0) return 'text.primary';
+
+                  if (totalBuyins === 0) return "text.primary";
                   roi = ((totalStackValue - totalBuyins) / totalBuyins) * 100;
                 } else {
-                  const totalBuyinsBB = filteredPlayerSessions.reduce((sum, session) => 
-                    sum + (session.buyinsTotal / session.bb), 0
+                  const totalBuyinsBB = filteredPlayerSessions.reduce(
+                    (sum, session) => sum + session.buyinsTotal / session.bb,
+                    0
                   );
-                  const totalProfitBB = filteredPlayerSessions.reduce((sum, session) => 
-                    sum + session.profitBB, 0
+                  const totalProfitBB = filteredPlayerSessions.reduce(
+                    (sum, session) => sum + session.profitBB,
+                    0
                   );
-                  
-                  if (totalBuyinsBB === 0) return 'text.primary';
+
+                  if (totalBuyinsBB === 0) return "text.primary";
                   roi = (totalProfitBB / totalBuyinsBB) * 100;
                 }
-                
-                return roi > 0 ? 'success.main' : roi < 0 ? 'error.main' : 'text.primary';
+
+                return roi > 0
+                  ? "success.main"
+                  : roi < 0
+                  ? "error.main"
+                  : "text.primary";
               })()}
-              tooltip={`Return on Investment - Percentage of profit/loss relative to total buy-ins in ${dashboardUnit === "cash" ? "cash" : "Big Blinds"}. Shows how efficiently your money is working.`}
+              tooltip={`Return on Investment - Percentage of profit/loss relative to total buy-ins in ${
+                dashboardUnit === "cash" ? "cash" : "Big Blinds"
+              }. Shows how efficiently your money is working.`}
+            />
+          </Grid>
+          <Grid item xs={12} sm={6}>
+            <MetricCard
+              title="Win Rate"
+              value={(() => {
+                const totalSessions = filteredPlayerSessions.length;
+                if (totalSessions === 0) return "0%";
+
+                const winningSessions = filteredPlayerSessions.filter(
+                  (session) =>
+                    dashboardUnit === "cash"
+                      ? session.profit > 0
+                      : session.profitBB > 0
+                ).length;
+
+                const winRate = (winningSessions / totalSessions) * 100;
+                const formattedNumber = new Intl.NumberFormat("en-US", {
+                  minimumFractionDigits: 1,
+                  maximumFractionDigits: 1,
+                }).format(winRate);
+
+                return `${formattedNumber}%`;
+              })()}
+              valueColor={(() => {
+                const totalSessions = filteredPlayerSessions.length;
+                if (totalSessions === 0) return "text.primary";
+
+                const winningSessions = filteredPlayerSessions.filter(
+                  (session) =>
+                    dashboardUnit === "cash"
+                      ? session.profit > 0
+                      : session.profitBB > 0
+                ).length;
+
+                const winRate = (winningSessions / totalSessions) * 100;
+                return winRate >= 50
+                  ? "success.main"
+                  : winRate < 50
+                  ? "error.main"
+                  : "text.primary";
+              })()}
+              tooltip="Percentage of sessions that ended with a profit (break-even sessions are not counted)"
+            />
+          </Grid>
+        </Grid>
+
+        {/* Timeline Chart */}
+        <Box sx={{ mb: 4 }}>
+          <TimelineCard
+            title={`Total P&L (${dashboardUnit === "cash" ? "₪" : "BB"})`}
+            data={getTimelineData}
+            yAxisLabel={dashboardUnit === "cash" ? "Profit (₪)" : "Profit (BB)"}
+            xAxisLabel="Date"
+            tooltip="Cumulative profit/loss over time, showing your bankroll progression"
+            formatTooltip={(value) =>
+              dashboardUnit === "cash"
+                ? `₪${new Intl.NumberFormat("en-US").format(value)}`
+                : `${value.toFixed(1)} BB`
+            }
+          />
+        </Box>
+
+        {/* Charts Grid */}
+        <Grid container spacing={3} sx={{ mt: 2, mb: 4 }}>
+          <Grid item xs={12} md={6}>
+            <PieChartCard
+              title="Sessions by Club"
+              data={getSessionsByClub}
+              tooltip="Distribution of poker sessions across different clubs"
+            />
+          </Grid>
+          <Grid item xs={12} md={6}>
+            <PieChartCard
+              title="Sessions by Stakes"
+              data={getSessionsByStakes}
+              tooltip="Distribution of poker sessions across different stake levels"
             />
           </Grid>
         </Grid>
