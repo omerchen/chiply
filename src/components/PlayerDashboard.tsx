@@ -621,6 +621,25 @@ export default function PlayerDashboard({
 
   return (
     <Container maxWidth="lg" sx={{ mt: 3, mb: 3 }}>
+      <Paper 
+        elevation={3} 
+        sx={{ 
+          p: 3, 
+          borderRadius: 2, 
+          mb: 3,
+          background: 'linear-gradient(45deg, #673ab7 30%, #9c27b0 90%)',
+          color: 'white'
+        }}
+      >
+        <Stack spacing={1}>
+          <Typography variant="h6" sx={{ fontWeight: 'medium' }}>
+            Welcome back, {player?.firstName}
+          </Typography>
+          <Typography variant="body2" sx={{ opacity: 0.8 }}>
+            {player?.email}
+          </Typography>
+        </Stack>
+      </Paper>
       <Paper elevation={3} sx={{ p: 4, borderRadius: 2 }}>
         <Stack
           direction={{ xs: "column", sm: "row" }}
