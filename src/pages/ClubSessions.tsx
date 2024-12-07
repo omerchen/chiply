@@ -22,6 +22,7 @@ import ActionButton from "../components/ActionButton";
 import { getCurrentUser } from "../services/auth";
 import { Player } from "../types/types";
 import { getApproximateHands, formatHands } from "../utils/gameUtils";
+import { formatMoney } from "../features/poker-session/utils/moneyFormatters";
 
 interface SessionData {
   players: {
@@ -222,6 +223,7 @@ function ClubSessions() {
                   <TableCell>Start Time</TableCell>
                   <TableCell>Stakes</TableCell>
                   <TableCell>Players</TableCell>
+                  <TableCell>Total Money</TableCell>
                   <TableCell>Duration</TableCell>
                   <TableCell align="right">Hands</TableCell>
                   <TableCell>Status</TableCell>
@@ -249,7 +251,14 @@ function ClubSessions() {
                       }}
                     >
                       <TableCell>
-                        {new Date(session.details.startTime).toLocaleString()}
+                        {new Date(session.details.startTime).toLocaleString('en-GB', {
+                          day: '2-digit',
+                          month: '2-digit',
+                          year: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                          hour12: false
+                        })}
                       </TableCell>
                       <TableCell>
                         {session.details.stakes.smallBlind}/
@@ -258,6 +267,9 @@ function ClubSessions() {
                           ` (${session.details.stakes.ante} ante)`}
                       </TableCell>
                       <TableCell>{playerCount}</TableCell>
+                      <TableCell>
+                        {formatMoney(Object.values(session.data?.buyins || {}).reduce((sum, buyin) => sum + buyin.amount, 0))}
+                      </TableCell>
                       <TableCell>
                         {duration || "-"}
                       </TableCell>
