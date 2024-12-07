@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import {
   Container,
   Paper,
@@ -45,6 +45,9 @@ import {
 } from "date-fns";
 import EditIcon from "@mui/icons-material/Edit";
 import FilterListIcon from "@mui/icons-material/FilterList";
+import DownloadIcon from "@mui/icons-material/Download";
+import html2canvas from "html2canvas";
+import jsPDF from "jspdf";
 
 interface PlayerStats {
   id: string;
@@ -99,6 +102,7 @@ function ClubDashboard() {
   const [sessionsFilter, setSessionsFilter] = useState<NumericFilter | null>(
     null
   );
+  const tableRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -420,6 +424,82 @@ function ClubDashboard() {
     return [...filteredPlayers].sort(comparator);
   }, [filteredPlayers, order, orderBy]);
 
+  const handleDownloadPDF = async () => {
+    if (!tableRef.current) return;
+
+    try {
+      // Set temporary styles for better PDF rendering
+      const originalStyle = tableRef.current.style.width;
+      const originalPosition = tableRef.current.style.position;
+      const originalOverflow = tableRef.current.style.overflow;
+
+      // Set styles for capture
+      tableRef.current.style.width = "1200px"; // Increased width
+      tableRef.current.style.position = "relative";
+      tableRef.current.style.left = "50%";
+      tableRef.current.style.transform = "translateX(-50%)";
+      tableRef.current.style.overflow = "visible";
+
+      const canvas = await html2canvas(tableRef.current, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        windowWidth: 1200, // Match the width
+        width: 1200,
+      });
+
+      // Restore original styles
+      tableRef.current.style.width = originalStyle;
+      tableRef.current.style.position = originalPosition;
+      tableRef.current.style.left = "";
+      tableRef.current.style.transform = "";
+      tableRef.current.style.overflow = originalOverflow;
+
+      // Use landscape by default for better table fit
+      const pdf = new jsPDF({
+        orientation: "landscape",
+        unit: "mm",
+      });
+
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+
+      // Calculate dimensions to fit the page with margins
+      const margins = 10; // 10mm margins
+      const maxWidth = pageWidth - (2 * margins);
+      const maxHeight = pageHeight - (2 * margins);
+
+      // Calculate scaling to fit within margins while maintaining aspect ratio
+      const imgAspectRatio = canvas.width / canvas.height;
+      const pageAspectRatio = maxWidth / maxHeight;
+
+      let imgWidth, imgHeight;
+
+      if (imgAspectRatio > pageAspectRatio) {
+        // Image is wider relative to its height than the page
+        imgWidth = maxWidth;
+        imgHeight = maxWidth / imgAspectRatio;
+      } else {
+        // Image is taller relative to its width than the page
+        imgHeight = maxHeight;
+        imgWidth = maxHeight * imgAspectRatio;
+      }
+
+      // Center the image on the page
+      const xOffset = (pageWidth - imgWidth) / 2;
+      const yOffset = (pageHeight - imgHeight) / 2;
+
+      const imgData = canvas.toDataURL("image/png");
+      pdf.addImage(imgData, "PNG", xOffset, yOffset, imgWidth, imgHeight);
+
+      // Format current date for filename
+      const currentDate = new Date().toLocaleDateString('en-GB').replace(/\//g, '-');
+      pdf.save(`${clubName}-dashboard-${currentDate}.pdf`);
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+    }
+  };
+
   if (loading) {
     return (
       <Container
@@ -444,9 +524,32 @@ function ClubDashboard() {
       />
 
       <Paper elevation={3} sx={{ p: 3, borderRadius: 2, mt: 3 }}>
-        <Typography variant="h5" gutterBottom>
-          Club Dashboard
-        </Typography>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+          <Typography variant="h5" gutterBottom sx={{ mb: 0 }}>
+            Club Dashboard
+          </Typography>
+          <Tooltip title="Download Dashboard">
+            <IconButton
+              onClick={handleDownloadPDF}
+              sx={{
+                backgroundColor: '#673ab7',
+                color: 'white',
+                '&:hover': {
+                  backgroundColor: '#563098',
+                },
+                '@media print': {
+                  display: 'none'
+                },
+                boxShadow: 2,
+                '&:active': {
+                  boxShadow: 1,
+                }
+              }}
+            >
+              <DownloadIcon />
+            </IconButton>
+          </Tooltip>
+        </Box>
 
         <Box sx={{ my: 3 }} />
 
@@ -503,7 +606,7 @@ function ClubDashboard() {
             No completed sessions found in this club.
           </Typography>
         ) : (
-          <TableContainer>
+          <TableContainer ref={tableRef}>
             <Table>
               <TableHead>
                 <TableRow>

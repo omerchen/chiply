@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
   Container, 
@@ -11,8 +11,14 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  TableSortLabel
+  TableSortLabel,
+  Box,
+  IconButton,
+  Tooltip,
 } from '@mui/material';
+import DownloadIcon from "@mui/icons-material/Download";
+import html2canvas from "html2canvas";
+import jsPDF from "jspdf";
 import { readData } from '../services/database';
 import ClubBreadcrumbs from '../components/ClubBreadcrumbs';
 import { formatMoney } from '../utils/formatters';
@@ -90,6 +96,7 @@ function SessionSummary() {
   const [order, setOrder] = useState<Order>('asc');
   const [orderBy, setOrderBy] = useState<keyof PlayerSummary>('rank');
   const [playerSummaries, setPlayerSummaries] = useState<PlayerSummary[]>([]);
+  const tableRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -184,6 +191,80 @@ function SessionSummary() {
     return "Session";
   };
 
+  const handleDownloadPDF = async () => {
+    if (!tableRef.current) return;
+
+    try {
+      // Set temporary styles for better PDF rendering
+      const originalStyle = tableRef.current.style.width;
+      const originalPosition = tableRef.current.style.position;
+      const originalOverflow = tableRef.current.style.overflow;
+
+      // Set styles for capture
+      tableRef.current.style.width = "1200px";
+      tableRef.current.style.position = "relative";
+      tableRef.current.style.left = "50%";
+      tableRef.current.style.transform = "translateX(-50%)";
+      tableRef.current.style.overflow = "visible";
+
+      const canvas = await html2canvas(tableRef.current, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        windowWidth: 1200,
+        width: 1200,
+      });
+
+      // Restore original styles
+      tableRef.current.style.width = originalStyle;
+      tableRef.current.style.position = originalPosition;
+      tableRef.current.style.left = "";
+      tableRef.current.style.transform = "";
+      tableRef.current.style.overflow = originalOverflow;
+
+      // Use landscape by default for better table fit
+      const pdf = new jsPDF({
+        orientation: "landscape",
+        unit: "mm",
+      });
+
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+
+      // Calculate dimensions to fit the page with margins
+      const margins = 10;
+      const maxWidth = pageWidth - (2 * margins);
+      const maxHeight = pageHeight - (2 * margins);
+
+      // Calculate scaling to fit within margins while maintaining aspect ratio
+      const imgAspectRatio = canvas.width / canvas.height;
+      const pageAspectRatio = maxWidth / maxHeight;
+
+      let imgWidth, imgHeight;
+
+      if (imgAspectRatio > pageAspectRatio) {
+        imgWidth = maxWidth;
+        imgHeight = maxWidth / imgAspectRatio;
+      } else {
+        imgHeight = maxHeight;
+        imgWidth = maxHeight * imgAspectRatio;
+      }
+
+      // Center the image on the page
+      const xOffset = (pageWidth - imgWidth) / 2;
+      const yOffset = (pageHeight - imgHeight) / 2;
+
+      const imgData = canvas.toDataURL("image/png");
+      pdf.addImage(imgData, "PNG", xOffset, yOffset, imgWidth, imgHeight);
+
+      // Format current date for filename
+      const currentDate = new Date().toLocaleDateString('en-GB').replace(/\//g, '-');
+      pdf.save(`${clubName}-session-summary-${currentDate}.pdf`);
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+    }
+  };
+
   if (loading) {
     return (
       <Container
@@ -228,11 +309,34 @@ function SessionSummary() {
       />
       
       <Paper elevation={3} sx={{ p: 3, borderRadius: 2, mt: 3 }}>
-        <Typography variant="h4" gutterBottom>
-          Session Summary
-        </Typography>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+          <Typography variant="h4" gutterBottom sx={{ mb: 0 }}>
+            Session Summary
+          </Typography>
+          <Tooltip title="Download Summary">
+            <IconButton
+              onClick={handleDownloadPDF}
+              sx={{
+                backgroundColor: '#673ab7',
+                color: 'white',
+                '&:hover': {
+                  backgroundColor: '#563098',
+                },
+                '@media print': {
+                  display: 'none'
+                },
+                boxShadow: 2,
+                '&:active': {
+                  boxShadow: 1,
+                }
+              }}
+            >
+              <DownloadIcon />
+            </IconButton>
+          </Tooltip>
+        </Box>
 
-        <TableContainer>
+        <TableContainer ref={tableRef}>
           <Table>
             <TableHead>
               <TableRow>
