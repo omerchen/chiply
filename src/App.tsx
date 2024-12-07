@@ -30,132 +30,137 @@ import CreateClub from "./pages/AdminPanel/CreateClub";
 import SignUp from './pages/SignUp';
 import SignUpVerify from './pages/SignUpVerify';
 import MySessions from "./pages/MySessions";
+import { LocalizationProvider } from '@mui/x-date-pickers';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import { he } from 'date-fns/locale';
 
 function App() {
   return (
     <Router>
-      <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route path="/signup" element={<SignUp />} />
-        <Route path="/signup/verify" element={<SignUpVerify />} />
-        <Route
-          path="/"
-          element={
-            <ProtectedRoute>
-              <Layout />
-            </ProtectedRoute>
-          }
-        >
-          <Route index element={<Home />} />
+      <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={he}>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route path="/signup" element={<SignUp />} />
+          <Route path="/signup/verify" element={<SignUpVerify />} />
           <Route
-            path="admin/*"
+            path="/"
             element={
-              <AdminProtectedRoute>
-                <Routes>
-                  <Route index element={<AdminPanel />} />
-                  <Route path="clubs" element={<AdminClubs />} />
-                  <Route path="clubs/create" element={<CreateClub />} />
-                  <Route path="users" element={<AdminUsers />} />
-                  <Route path="users/create" element={<CreateUser />} />
-                  <Route path="users/:userId" element={<EditUser />} />
-                </Routes>
-              </AdminProtectedRoute>
+              <ProtectedRoute>
+                <Layout />
+              </ProtectedRoute>
             }
-          />
-          <Route path="clubs">
+          >
+            <Route index element={<Home />} />
             <Route
-              index
+              path="admin/*"
               element={
-                <ClubProtectedRoute>
-                  <Clubs />
-                </ClubProtectedRoute>
+                <AdminProtectedRoute>
+                  <Routes>
+                    <Route index element={<AdminPanel />} />
+                    <Route path="clubs" element={<AdminClubs />} />
+                    <Route path="clubs/create" element={<CreateClub />} />
+                    <Route path="users" element={<AdminUsers />} />
+                    <Route path="users/create" element={<CreateUser />} />
+                    <Route path="users/:userId" element={<EditUser />} />
+                  </Routes>
+                </AdminProtectedRoute>
               }
             />
-            <Route
-              path=":clubId"
-              element={
-                <ClubProtectedRoute>
-                  <ClubDetails />
-                </ClubProtectedRoute>
-              }
-            />
-            <Route
-              path=":clubId/players"
-              element={
-                <ClubProtectedRoute>
-                  <ClubPlayers />
-                </ClubProtectedRoute>
-              }
-            />
-            <Route
-              path=":clubId/players/new"
-              element={
-                <ClubProtectedRoute>
-                  <NewClubPlayer />
-                </ClubProtectedRoute>
-              }
-            />
-            <Route
-              path=":clubId/newPlayer"
-              element={
-                <ClubProtectedRoute>
-                  <NewClubPlayer />
-                </ClubProtectedRoute>
-              }
-            />
-            <Route
-              path=":clubId/players/:playerId"
-              element={
-                <ClubProtectedRoute>
-                  <ClubPlayerDetails />
-                </ClubProtectedRoute>
-              }
-            />
-            <Route
-              path=":clubId/sessions"
-              element={
-                <ClubProtectedRoute>
-                  <ClubSessions />
-                </ClubProtectedRoute>
-              }
-            />
-            <Route
-              path=":clubId/sessions/new"
-              element={
-                <ClubProtectedRoute>
-                  <NewClubSession />
-                </ClubProtectedRoute>
-              }
-            />
-            <Route
-              path=":clubId/newSession"
-              element={
-                <ClubProtectedRoute>
-                  <NewClubSession />
-                </ClubProtectedRoute>
-              }
-            />
-            <Route
-              path=":clubId/sessions/:sessionId"
-              element={
-                <ClubProtectedRoute>
-                  <ClubSessionDetails />
-                </ClubProtectedRoute>
-              }
-            />
-            <Route
-              path=":clubId/sessions/:sessionId/summary"
-              element={
-                <ClubProtectedRoute>
-                  <SessionSummary />
-                </ClubProtectedRoute>
-              }
-            />
+            <Route path="clubs">
+              <Route
+                index
+                element={
+                  <ClubProtectedRoute>
+                    <Clubs />
+                  </ClubProtectedRoute>
+                }
+              />
+              <Route
+                path=":clubId"
+                element={
+                  <ClubProtectedRoute>
+                    <ClubDetails />
+                  </ClubProtectedRoute>
+                }
+              />
+              <Route
+                path=":clubId/players"
+                element={
+                  <ClubProtectedRoute>
+                    <ClubPlayers />
+                  </ClubProtectedRoute>
+                }
+              />
+              <Route
+                path=":clubId/players/new"
+                element={
+                  <ClubProtectedRoute>
+                    <NewClubPlayer />
+                  </ClubProtectedRoute>
+                }
+              />
+              <Route
+                path=":clubId/newPlayer"
+                element={
+                  <ClubProtectedRoute>
+                    <NewClubPlayer />
+                  </ClubProtectedRoute>
+                }
+              />
+              <Route
+                path=":clubId/players/:playerId"
+                element={
+                  <ClubProtectedRoute>
+                    <ClubPlayerDetails />
+                  </ClubProtectedRoute>
+                }
+              />
+              <Route
+                path=":clubId/sessions"
+                element={
+                  <ClubProtectedRoute>
+                    <ClubSessions />
+                  </ClubProtectedRoute>
+                }
+              />
+              <Route
+                path=":clubId/sessions/new"
+                element={
+                  <ClubProtectedRoute>
+                    <NewClubSession />
+                  </ClubProtectedRoute>
+                }
+              />
+              <Route
+                path=":clubId/newSession"
+                element={
+                  <ClubProtectedRoute>
+                    <NewClubSession />
+                  </ClubProtectedRoute>
+                }
+              />
+              <Route
+                path=":clubId/sessions/:sessionId"
+                element={
+                  <ClubProtectedRoute>
+                    <ClubSessionDetails />
+                  </ClubProtectedRoute>
+                }
+              />
+              <Route
+                path=":clubId/sessions/:sessionId/summary"
+                element={
+                  <ClubProtectedRoute>
+                    <SessionSummary />
+                  </ClubProtectedRoute>
+                }
+              />
+            </Route>
+            <Route path="/sessions" element={<MySessions />} />
           </Route>
-          <Route path="/sessions" element={<MySessions />} />
-        </Route>
-        <Route path="*" element={<ErrorPage />} />
-      </Routes>
+          <Route path="*" element={<ErrorPage />} />
+        </Routes>
+      </LocalizationProvider>
     </Router>
   );
 }

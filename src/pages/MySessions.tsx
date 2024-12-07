@@ -12,14 +12,30 @@ import {
   CircularProgress,
   Box,
   Stack,
+  Button,
+  Menu,
+  MenuItem,
+  IconButton,
+  Popover,
+  TextField,
+  Select,
+  FormControl,
+  InputLabel,
+  Checkbox,
+  ListItemText,
+  OutlinedInput,
+  Chip,
 } from "@mui/material";
+import FilterListIcon from "@mui/icons-material/FilterList";
 import EventIcon from "@mui/icons-material/Event";
+import AddIcon from "@mui/icons-material/Add";
 import { ref, get } from "firebase/database";
 import { db } from "../config/firebase";
 import { getCurrentUser } from "../services/auth";
 import EmptyState from "../components/EmptyState";
 import { getApproximateHands, formatHands } from "../utils/gameUtils";
-import { format } from 'date-fns';
+import { format } from "date-fns";
+import { ManualSessionForm } from "../components/ManualSessionForm";
 
 interface Session {
   id: string;
@@ -61,7 +77,7 @@ interface ProcessedSession {
   finalStack: number | null;
   profitLoss: number | null;
   clubName: string;
-  playerCount: number;
+  playerCount: number | string;
   hands: number | null;
   stakes: {
     smallBlind: number;
@@ -69,6 +85,8 @@ interface ProcessedSession {
     ante?: number;
   };
   profitLossBB: number | null;
+  isManual?: boolean;
+  location?: string;
 }
 
 interface CashoutData {
@@ -76,9 +94,299 @@ interface CashoutData {
   stackValue: number;
 }
 
+interface ManualSession {
+  id: string;
+  userId: string;
+  dateTime: number;
+  duration: number;
+  stakes: {
+    smallBlind: number;
+    bigBlind: number;
+    ante?: number;
+  };
+  buyinCount: number;
+  buyinTotal: number;
+  finalStack: number;
+}
+
+interface ManualSessionFormProps {
+  open: boolean;
+  onClose: () => void;
+  initialData?: ManualSession;
+  onSubmit: () => void;
+  playerId: string;
+}
+
+type DateFilterType =
+  | "before"
+  | "after"
+  | "between"
+  | "last7"
+  | "last30"
+  | "last90"
+  | null;
+type NumericFilterOperator =
+  | "equals"
+  | "notEquals"
+  | "greaterThan"
+  | "greaterThanOrEqual"
+  | "lessThan"
+  | "lessThanOrEqual";
+
+interface DateFilter {
+  type: DateFilterType;
+  startDate?: Date;
+  endDate?: Date;
+}
+
+interface NumericFilter {
+  operator: NumericFilterOperator;
+  value: number;
+}
+
+interface DropdownFilter {
+  selectedValues: string[];
+}
+
+interface Filters {
+  date: DateFilter;
+  club: DropdownFilter;
+  stakes: DropdownFilter;
+  type: DropdownFilter;
+  status: DropdownFilter;
+  players: NumericFilter | null;
+  playTime: NumericFilter | null;
+  hands: NumericFilter | null;
+  buyins: NumericFilter | null;
+  totalBuyins: NumericFilter | null;
+  finalStack: NumericFilter | null;
+  profitLoss: NumericFilter | null;
+  bbProfitLoss: NumericFilter | null;
+}
+
 function MySessions() {
   const [loading, setLoading] = useState(true);
   const [sessions, setSessions] = useState<ProcessedSession[]>([]);
+  const [showManualForm, setShowManualForm] = useState(false);
+  const [selectedManualSession, setSelectedManualSession] =
+    useState<ManualSession | null>(null);
+  const [manualSessions, setManualSessions] = useState<ProcessedSession[]>([]);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [playerId, setPlayerId] = useState<string | null>(null);
+
+  // Filter states
+  const [filters, setFilters] = useState<Filters>({
+    date: { type: null },
+    club: { selectedValues: [] },
+    stakes: { selectedValues: [] },
+    type: { selectedValues: [] },
+    status: { selectedValues: [] },
+    players: null,
+    playTime: null,
+    hands: null,
+    buyins: null,
+    totalBuyins: null,
+    finalStack: null,
+    profitLoss: null,
+    bbProfitLoss: null,
+  });
+
+  // Filter anchor elements
+  const [filterAnchors, setFilterAnchors] = useState<{
+    [key: string]: HTMLElement | null;
+  }>({});
+
+  // Available options for dropdown filters
+  const [availableClubs, setAvailableClubs] = useState<string[]>([]);
+  const [availableStakes, setAvailableStakes] = useState<string[]>([]);
+  const [availableTypes] = useState(["Manual", "In-app"]);
+  const [availableStatuses] = useState(["Playing", "Completed"]);
+
+  // Add sorting state
+  type SortDirection = 'asc' | 'desc';
+  type SortField = 'date' | 'club' | 'stakes' | 'type' | 'status' | 'players' | 'playTime' | 'hands' | 'buyins' | 'totalBuyins' | 'finalStack' | 'profitLoss' | 'bbProfitLoss';
+  
+  const [sortConfig, setSortConfig] = useState<{
+    field: SortField;
+    direction: SortDirection;
+  }>({
+    field: 'date',
+    direction: 'desc'
+  });
+
+  // Handle sort
+  const handleSort = (field: SortField) => {
+    setSortConfig(prevConfig => ({
+      field,
+      direction: prevConfig.field === field && prevConfig.direction === 'desc' ? 'asc' : 'desc'
+    }));
+  };
+
+  // Apply filters to sessions
+  const filteredSessions = sessions.filter((session) => {
+    // Date filter
+    if (filters.date.type) {
+      const sessionDate = new Date(session.date);
+
+      switch (filters.date.type) {
+        case "before":
+          if (!filters.date.endDate) return true;
+          return sessionDate <= filters.date.endDate;
+        case "after":
+          if (!filters.date.startDate) return true;
+          return sessionDate >= filters.date.startDate;
+        case "between":
+          if (!filters.date.startDate || !filters.date.endDate) return true;
+          // Set start date to beginning of day (00:00:00)
+          const startDate = new Date(filters.date.startDate);
+          startDate.setHours(0, 0, 0, 0);
+          // Set end date to end of day (23:59:59)
+          const endDate = new Date(filters.date.endDate);
+          endDate.setHours(23, 59, 59, 999);
+          return sessionDate >= startDate && sessionDate <= endDate;
+        case "last7":
+          const sevenDaysAgo = new Date();
+          sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+          return sessionDate >= sevenDaysAgo;
+        case "last30":
+          const thirtyDaysAgo = new Date();
+          thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+          return sessionDate >= thirtyDaysAgo;
+        case "last90":
+          const ninetyDaysAgo = new Date();
+          ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+          return sessionDate >= ninetyDaysAgo;
+        default:
+          return true;
+      }
+    }
+
+    // Dropdown filters
+    if (
+      filters.club.selectedValues.length &&
+      !filters.club.selectedValues.includes(session.clubName)
+    )
+      return false;
+    if (
+      filters.stakes.selectedValues.length &&
+      !filters.stakes.selectedValues.includes(
+        `${session.stakes.smallBlind}/${session.stakes.bigBlind}${
+          session.stakes.ante ? ` (${session.stakes.ante})` : ""
+        }`
+      )
+    )
+      return false;
+    if (
+      filters.type.selectedValues.length &&
+      !filters.type.selectedValues.includes(
+        session.isManual ? "Manual" : "In-app"
+      )
+    )
+      return false;
+    if (
+      filters.status.selectedValues.length &&
+      !filters.status.selectedValues.includes(session.status)
+    )
+      return false;
+
+    // Numeric filters
+    const numericFields: [keyof Filters, number | null][] = [
+      [
+        "players",
+        typeof session.playerCount === "number" ? session.playerCount : null,
+      ],
+      [
+        "playTime",
+        session.playTime ? parseFloat(session.playTime.replace("h", "")) : null,
+      ],
+      ["hands", session.hands],
+      ["buyins", session.buyinCount],
+      ["totalBuyins", session.buyinTotal],
+      ["finalStack", session.finalStack],
+      ["profitLoss", session.profitLoss],
+      ["bbProfitLoss", session.profitLossBB],
+    ];
+
+    for (const [field, value] of numericFields) {
+      const filter = filters[field] as NumericFilter | null;
+      if (filter && value !== null) {
+        switch (filter.operator) {
+          case "equals":
+            if (value !== filter.value) return false;
+            break;
+          case "notEquals":
+            if (value === filter.value) return false;
+            break;
+          case "greaterThan":
+            if (value <= filter.value) return false;
+            break;
+          case "greaterThanOrEqual":
+            if (value < filter.value) return false;
+            break;
+          case "lessThan":
+            if (value >= filter.value) return false;
+            break;
+          case "lessThanOrEqual":
+            if (value > filter.value) return false;
+            break;
+        }
+      }
+    }
+
+    return true;
+  });
+
+  // Sort filtered sessions
+  const sortedSessions = [...filteredSessions].sort((a, b) => {
+    const direction = sortConfig.direction === 'asc' ? 1 : -1;
+    
+    switch (sortConfig.field) {
+      case 'date':
+        return (a.date - b.date) * direction;
+      case 'club':
+        return (a.clubName || '').localeCompare(b.clubName || '') * direction;
+      case 'stakes':
+        return (a.stakes.bigBlind - b.stakes.bigBlind) * direction;
+      case 'type':
+        return (a.isManual ? 'Manual' : 'In-app').localeCompare(b.isManual ? 'Manual' : 'In-app') * direction;
+      case 'status':
+        return a.status.localeCompare(b.status) * direction;
+      case 'players':
+        return ((Number(a.playerCount) || 0) - (Number(b.playerCount) || 0)) * direction;
+      case 'playTime':
+        const getMinutes = (time: string | null) => {
+          if (!time) return 0;
+          const match = time.match(/(\d+)h\s*(?:(\d+)m)?/);
+          if (!match) return 0;
+          return (parseInt(match[1]) * 60) + (parseInt(match[2]) || 0);
+        };
+        return (getMinutes(a.playTime) - getMinutes(b.playTime)) * direction;
+      case 'hands':
+        return ((a.hands || 0) - (b.hands || 0)) * direction;
+      case 'buyins':
+        return (a.buyinCount - b.buyinCount) * direction;
+      case 'totalBuyins':
+        return (a.buyinTotal - b.buyinTotal) * direction;
+      case 'finalStack':
+        return ((a.finalStack || 0) - (b.finalStack || 0)) * direction;
+      case 'profitLoss':
+        return ((a.profitLoss || 0) - (b.profitLoss || 0)) * direction;
+      case 'bbProfitLoss':
+        return ((a.profitLossBB || 0) - (b.profitLossBB || 0)) * direction;
+      default:
+        return 0;
+    }
+  });
+
+  // Helper function to render sort indicator
+  const renderSortIndicator = (field: SortField) => {
+    if (sortConfig.field !== field) return null;
+    return (
+      <Box component="span" sx={{ ml: 0.5 }}>
+        {sortConfig.direction === 'asc' ? '↑' : '↓'}
+      </Box>
+    );
+  };
 
   useEffect(() => {
     const fetchSessions = async () => {
@@ -105,6 +413,9 @@ function MySessions() {
           return;
         }
 
+        // Store the player ID
+        setPlayerId(userPlayerIds[0]);
+
         // Get all sessions
         const sessionsRef = ref(db, "sessions");
         const sessionsSnapshot = await get(sessionsRef);
@@ -125,88 +436,142 @@ function MySessions() {
           sessionsData
         )
           .map(([sessionId, session]: [string, any]) => {
-            const playerBuyins = Object.values(
-              session.data?.buyins || {}
-            ).filter((buyin: any) => userPlayerIds.includes(buyin.playerId));
+            if (!session) return null;
 
-            const playerCashout = Object.values(
-              session.data?.cashouts || {}
-            ).find((cashout: any) =>
-              userPlayerIds.includes(cashout.playerId)
-            ) as CashoutData | undefined;
+            // Check if the player is a participant in this session
+            const isPlayerParticipant =
+              session.data?.players && userPlayerIds[0] in session.data.players;
 
-            // Skip sessions where the player isn't involved
-            if (
-              !playerBuyins.length &&
-              !Object.keys(session.data?.players || {}).some((id) =>
-                userPlayerIds.includes(id)
-              )
-            ) {
-              return null;
-            }
+            if (!isPlayerParticipant) return null;
 
-            let status: "Scheduled" | "Playing" | "Completed" = "Scheduled";
+            // Filter buy-ins and cashouts for this player
+            const playerBuyins = Object.values(session.data?.buyins || {}).filter(
+              (buyin: any) => buyin.playerId === userPlayerIds[0]
+            );
+            const playerCashouts = Object.values(session.data?.cashouts || {}).filter(
+              (cashout: any) => cashout.playerId === userPlayerIds[0]
+            );
+
+            // Calculate play time
+            let playTime = null;
             if (playerBuyins.length > 0) {
-              status = playerCashout ? "Completed" : "Playing";
-            }
-
-            // Calculate play time and hands
-            let playTime: string | null = null;
-            let hands: number | null = null;
-
-            if (playerBuyins.length > 0) {
-              const firstBuyinTime = Math.min(
-                ...playerBuyins.map((b: any) => b.time)
-              );
-              const endTime = playerCashout ? playerCashout.time : Date.now();
-              const playTimeMs = endTime - firstBuyinTime;
-              const hours = Math.floor(playTimeMs / (1000 * 60 * 60));
-              const minutes = Math.floor(
-                (playTimeMs % (1000 * 60 * 60)) / (1000 * 60)
-              );
-              playTime = `${hours}h ${minutes}m`;
-
-              // Calculate hands for both Playing and Completed sessions
-              const durationMinutes = Math.floor(playTimeMs / (1000 * 60));
-              const playerCount = Object.keys(
-                session.data?.players || {}
-              ).length;
-              if (playerCount > 0) {
-                hands = getApproximateHands(playerCount, durationMinutes);
+              const firstBuyinTime = Math.min(...playerBuyins.map((b: any) => b.time));
+              let lastTime: number;
+              
+              if (playerCashouts.length > 0) {
+                lastTime = Math.max(...playerCashouts.map((c: any) => c.time));
+              } else if (session.status === 'open') {
+                lastTime = Date.now();
+              } else {
+                lastTime = firstBuyinTime;
+              }
+              
+              const durationMinutes = (lastTime - firstBuyinTime) / (1000 * 60);
+              const hours = Math.floor(durationMinutes / 60);
+              const minutes = Math.floor(durationMinutes % 60);
+              
+              if (hours > 0 && minutes > 0) {
+                playTime = `${hours}h ${minutes}m`;
+              } else if (hours > 0) {
+                playTime = `${hours}h`;
+              } else if (minutes > 0) {
+                playTime = `${minutes}m`;
               }
             }
 
-            const buyinTotal = playerBuyins.reduce(
+            // Get number of players directly from the players object
+            const playerCount = session.data?.players ? Object.keys(session.data.players).length : 0;
+
+            const totalBuyins = playerBuyins.reduce(
               (sum: number, buyin: any) => sum + buyin.amount,
               0
             );
-            const playerCount = Object.keys(session.data?.players || {}).length;
-            const clubName = clubsData[session.clubId]?.name || "Unknown Club";
+            const buyinCount = playerBuyins.length;
+            const finalStack = playerCashouts.length > 0 ? playerCashouts[playerCashouts.length - 1].cashout : null;
+            const profitLoss = finalStack !== null ? finalStack - totalBuyins : null;
+            const profitLossBB = profitLoss !== null ? profitLoss / session.details.stakes.bigBlind : null;
+
+            // Calculate hands based on play time
+            const hands = playTime && playerCount > 0
+              ? getApproximateHands(playerCount, parseFloat(playTime) * 60)
+              : null;
 
             return {
               id: sessionId,
               date: session.details.startTime,
-              status,
-              playTime,
-              buyinCount: playerBuyins.length,
-              buyinTotal,
-              finalStack: playerCashout?.stackValue || null,
-              profitLoss: playerCashout
-                ? playerCashout.stackValue - buyinTotal
-                : null,
-              clubName,
-              playerCount,
-              hands,
+              club: session.details.type,
               stakes: session.details.stakes,
-              profitLossBB: playerCashout
-                ? (playerCashout.stackValue - buyinTotal) / session.details.stakes.bigBlind
-                : null,
-            };
+              status: session.status === "open" ? "Playing" : "Completed",
+              playerCount,
+              playTime,
+              hands,
+              buyinCount,
+              buyinTotal: totalBuyins,
+              finalStack,
+              profitLoss,
+              profitLossBB,
+              isManual: false,
+              clubName: clubsData[session.clubId]?.name || "Unknown Club",
+            } as ProcessedSession;
           })
-          .filter((session): session is ProcessedSession => session !== null)
-          .sort((a, b) => b.date - a.date); // Sort by date descending
+          .filter((session): session is ProcessedSession => session !== null);
 
-        setSessions(processedSessions);
+        // Fetch manual sessions
+        if (userPlayerIds[0]) {
+          const manualSessionsRef = ref(
+            db,
+            `players/${userPlayerIds[0]}/manualPlayerSessions`
+          );
+          const manualSessionsSnapshot = await get(manualSessionsRef);
+          const manualSessionsData = manualSessionsSnapshot.val();
+
+          if (manualSessionsData) {
+            const processedManualSessions: ProcessedSession[] = Object.entries(
+              manualSessionsData
+            ).map(([id, session]: [string, any]) => {
+              // Calculate hands for manual sessions
+              const durationMinutes = session.duration * 60; // Convert hours to minutes
+              const hands = getApproximateHands(
+                session.numberOfPlayers,
+                durationMinutes
+              );
+
+              return {
+                id,
+                date: session.dateTime,
+                status: "Completed",
+                playTime: `${Math.floor(session.duration)}h ${Math.floor((session.duration % 1) * 60)}m`,
+                buyinCount: session.buyinCount,
+                buyinTotal: session.buyinTotal,
+                finalStack: session.finalStack,
+                profitLoss: session.finalStack - session.buyinTotal,
+                clubName: "",
+                playerCount: session.numberOfPlayers,
+                hands,
+                stakes: session.stakes,
+                profitLossBB:
+                  (session.finalStack - session.buyinTotal) /
+                  session.stakes.bigBlind,
+                isManual: true,
+                location: session.location,
+              };
+            });
+
+            // Combine and sort all sessions, ensuring no duplicates by ID
+            const allSessions = [...processedSessions];
+            processedManualSessions.forEach(manualSession => {
+              if (!allSessions.some(session => session.id === manualSession.id)) {
+                allSessions.push(manualSession);
+              }
+            });
+            
+            setSessions(allSessions.sort((a, b) => b.date - a.date));
+          } else {
+            setSessions(processedSessions.sort((a, b) => b.date - a.date));
+          }
+        } else {
+          setSessions(processedSessions.sort((a, b) => b.date - a.date));
+        }
       } catch (error) {
         console.error("Error fetching sessions:", error);
       } finally {
@@ -215,7 +580,141 @@ function MySessions() {
     };
 
     fetchSessions();
-  }, []);
+  }, [refreshTrigger]);
+
+  // Update available filter options when sessions change
+  useEffect(() => {
+    const clubs = [...new Set(sessions.map((s) => s.clubName))];
+    setAvailableClubs(clubs);
+
+    const stakes = [
+      ...new Set(
+        sessions.map(
+          (s) =>
+            `${s.stakes.smallBlind}/${s.stakes.bigBlind}${
+              s.stakes.ante ? ` (${s.stakes.ante})` : ""
+            }`
+        )
+      ),
+    ];
+    setAvailableStakes(stakes);
+  }, [sessions]);
+
+  // Handle filter menu open
+  const handleFilterClick =
+    (columnId: string) => (event: React.MouseEvent<HTMLElement>) => {
+      setFilterAnchors((prev) => ({
+        ...prev,
+        [columnId]: event.currentTarget,
+      }));
+    };
+
+  // Handle filter menu close
+  const handleFilterClose = (columnId: string) => {
+    setFilterAnchors((prev) => ({
+      ...prev,
+      [columnId]: null,
+    }));
+  };
+
+  // Handle dropdown filter change
+  const handleDropdownFilterChange =
+    (columnId: keyof Filters) => (event: any) => {
+      const value = event.target.value;
+      setFilters((prev) => ({
+        ...prev,
+        [columnId]: {
+          ...prev[columnId],
+          selectedValues: value,
+        },
+      }));
+    };
+
+  // Handle numeric filter change
+  const handleNumericFilterChange =
+    (columnId: keyof Filters) =>
+    (operator: NumericFilterOperator, value: number) => {
+      setFilters((prev) => ({
+        ...prev,
+        [columnId]: {
+          operator,
+          value,
+        },
+      }));
+    };
+
+  // Handle date filter change
+  const handleDateFilterChange = (
+    type: DateFilterType,
+    startDate?: Date,
+    endDate?: Date
+  ) => {
+    setFilters((prev) => ({
+      ...prev,
+      date: {
+        type,
+        startDate,
+        endDate,
+      },
+    }));
+  };
+
+  const handleRowClick = (session: ProcessedSession) => {
+    if (session.isManual) {
+      setSelectedManualSession({
+        id: session.id,
+        userId: "", // Will be set on save
+        dateTime: session.date,
+        duration: parseFloat(session.playTime?.replace("h", "") || "0"),
+        stakes: session.stakes,
+        buyinCount: session.buyinCount,
+        buyinTotal: session.buyinTotal,
+        finalStack: session.finalStack || 0,
+        numberOfPlayers:
+          typeof session.playerCount === "number"
+            ? session.playerCount
+            : parseInt(session.playerCount),
+        location: session.location,
+      });
+      setShowManualForm(true);
+    }
+  };
+
+  const handleManualFormClose = () => {
+    setShowManualForm(false);
+    setSelectedManualSession(null);
+  };
+
+  const getFilterIcon = (columnId: string) => {
+    return (
+      <IconButton
+        size="small"
+        onClick={(event) => handleFilterClick(columnId)(event)}
+      >
+        <FilterListIcon
+          fontSize="small"
+          color={
+            columnId === "date"
+              ? filters.date.type
+                ? "primary"
+                : "inherit"
+              : ["club", "stakes", "type", "status"].includes(columnId)
+              ? (filters[columnId as keyof Filters] as DropdownFilter)
+                  .selectedValues.length > 0
+                ? "primary"
+                : "inherit"
+              : filters[columnId as keyof Filters] &&
+                (filters[columnId as keyof Filters] as NumericFilter)
+                  .operator &&
+                (filters[columnId as keyof Filters] as NumericFilter)
+                  .operator !== ""
+              ? "primary"
+              : "inherit"
+          }
+        />
+      </IconButton>
+    );
+  };
 
   if (loading) {
     return (
@@ -247,42 +746,196 @@ function MySessions() {
   return (
     <Container maxWidth="lg" sx={{ mt: 3, mb: 3 }}>
       <Paper elevation={3} sx={{ p: { xs: 2, sm: 3 }, borderRadius: 2 }}>
-        <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 3 }}>
-          <EventIcon sx={{ color: "#673ab7" }} />
-          <Typography variant="h5">My Sessions</Typography>
+        <Stack
+          direction="row"
+          spacing={1}
+          alignItems="center"
+          sx={{ mb: 3 }}
+          justifyContent="space-between"
+        >
+          <Stack direction="row" spacing={1} alignItems="center">
+            <EventIcon sx={{ color: "#673ab7" }} />
+            <Typography variant="h5">My Sessions</Typography>
+          </Stack>
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => setShowManualForm(true)}
+          >
+            Add Manual Session
+          </Button>
         </Stack>
 
         <TableContainer>
           <Table>
             <TableHead>
               <TableRow>
-                <TableCell sx={{ minWidth: 100 }}>Date</TableCell>
-                <TableCell sx={{ minWidth: 120 }}>Club</TableCell>
-                <TableCell sx={{ minWidth: 80 }}>Stakes</TableCell>
-                <TableCell sx={{ minWidth: 100 }}>Status</TableCell>
-                <TableCell sx={{ minWidth: 80 }}>Players</TableCell>
-                <TableCell sx={{ minWidth: 100 }}>Play Time</TableCell>
-                <TableCell align="right" sx={{ minWidth: 100 }}>Hands</TableCell>
-                <TableCell align="right" sx={{ minWidth: 80 }}>Buy-ins</TableCell>
-                <TableCell align="right" sx={{ minWidth: 100 }}>Total Buy-in</TableCell>
-                <TableCell align="right" sx={{ minWidth: 100 }}>Final Stack</TableCell>
-                <TableCell align="right" sx={{ minWidth: 80 }}>P&L</TableCell>
-                <TableCell align="right" sx={{ minWidth: 80 }}>BB P&L</TableCell>
+                <TableCell 
+                  sx={{ minWidth: 200, cursor: 'pointer' }}
+                  onClick={() => handleSort('date')}
+                >
+                  <Stack direction="row" alignItems="center">
+                    Date {renderSortIndicator('date')}
+                    {getFilterIcon('date')}
+                  </Stack>
+                </TableCell>
+                <TableCell 
+                  sx={{ minWidth: 200, cursor: 'pointer' }}
+                  onClick={() => handleSort('club')}
+                >
+                  <Stack direction="row" alignItems="center">
+                    Club {renderSortIndicator('club')}
+                    {getFilterIcon('club')}
+                  </Stack>
+                </TableCell>
+                <TableCell 
+                  sx={{ minWidth: 200, cursor: 'pointer' }}
+                  onClick={() => handleSort('stakes')}
+                >
+                  <Stack direction="row" alignItems="center">
+                    Stakes {renderSortIndicator('stakes')}
+                    {getFilterIcon('stakes')}
+                  </Stack>
+                </TableCell>
+                <TableCell 
+                  sx={{ minWidth: 200, cursor: 'pointer' }}
+                  onClick={() => handleSort('type')}
+                >
+                  <Stack direction="row" alignItems="center">
+                    Type {renderSortIndicator('type')}
+                    {getFilterIcon('type')}
+                  </Stack>
+                </TableCell>
+                <TableCell 
+                  sx={{ minWidth: 200, cursor: 'pointer' }}
+                  onClick={() => handleSort('status')}
+                >
+                  <Stack direction="row" alignItems="center">
+                    Status {renderSortIndicator('status')}
+                    {getFilterIcon('status')}
+                  </Stack>
+                </TableCell>
+                <TableCell 
+                  sx={{ minWidth: 200, cursor: 'pointer' }}
+                  onClick={() => handleSort('players')}
+                >
+                  <Stack direction="row" alignItems="center">
+                    Players {renderSortIndicator('players')}
+                    {getFilterIcon('players')}
+                  </Stack>
+                </TableCell>
+                <TableCell 
+                  sx={{ minWidth: 200, cursor: 'pointer' }}
+                  onClick={() => handleSort('playTime')}
+                >
+                  <Stack direction="row" alignItems="center">
+                    Play Time {renderSortIndicator('playTime')}
+                    {getFilterIcon('playTime')}
+                  </Stack>
+                </TableCell>
+                <TableCell 
+                  sx={{ minWidth: 200, cursor: 'pointer' }}
+                  onClick={() => handleSort('hands')}
+                >
+                  <Stack direction="row" alignItems="center">
+                    Hands {renderSortIndicator('hands')}
+                    {getFilterIcon('hands')}
+                  </Stack>
+                </TableCell>
+                <TableCell 
+                  sx={{ minWidth: 200, cursor: 'pointer' }}
+                  onClick={() => handleSort('buyins')}
+                >
+                  <Stack direction="row" alignItems="center">
+                    Buy-ins {renderSortIndicator('buyins')}
+                    {getFilterIcon('buyins')}
+                  </Stack>
+                </TableCell>
+                <TableCell 
+                  sx={{ minWidth: 200, cursor: 'pointer' }}
+                  onClick={() => handleSort('totalBuyins')}
+                >
+                  <Stack direction="row" alignItems="center">
+                    Total Buy-in {renderSortIndicator('totalBuyins')}
+                    {getFilterIcon('totalBuyins')}
+                  </Stack>
+                </TableCell>
+                <TableCell 
+                  sx={{ minWidth: 200, cursor: 'pointer' }}
+                  onClick={() => handleSort('finalStack')}
+                >
+                  <Stack direction="row" alignItems="center">
+                    Final Stack {renderSortIndicator('finalStack')}
+                    {getFilterIcon('finalStack')}
+                  </Stack>
+                </TableCell>
+                <TableCell 
+                  sx={{ minWidth: 200, cursor: 'pointer' }}
+                  onClick={() => handleSort('profitLoss')}
+                >
+                  <Stack direction="row" alignItems="center">
+                    P&L {renderSortIndicator('profitLoss')}
+                    {getFilterIcon('profitLoss')}
+                  </Stack>
+                </TableCell>
+                <TableCell 
+                  sx={{ minWidth: 200, cursor: 'pointer' }}
+                  onClick={() => handleSort('bbProfitLoss')}
+                >
+                  <Stack direction="row" alignItems="center">
+                    BB P&L {renderSortIndicator('bbProfitLoss')}
+                    {getFilterIcon('bbProfitLoss')}
+                  </Stack>
+                </TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
-              {sessions.map((session) => (
-                <TableRow key={session.id}>
-                  <TableCell sx={{ minWidth: 100 }}>
-                    {format(new Date(session.date), 'dd/MM/yyyy')}
+              {sortedSessions.map((session) => (
+                <TableRow
+                  key={session.id}
+                  onClick={() => handleRowClick(session)}
+                  sx={{
+                    cursor: session.isManual ? "pointer" : "default",
+                    "&:hover": session.isManual
+                      ? { bgcolor: "action.hover" }
+                      : {},
+                  }}
+                >
+                  <TableCell sx={{ minWidth: 200 }}>
+                    {format(new Date(session.date), "dd/MM/yyyy")}
                   </TableCell>
-                  <TableCell sx={{ minWidth: 120 }}>{session.clubName}</TableCell>
-                  <TableCell sx={{ minWidth: 80 }}>
+                  <TableCell sx={{ minWidth: 200 }}>
+                    {session.clubName}
+                    {session.location && ` (${session.location})`}
+                  </TableCell>
+                  <TableCell sx={{ minWidth: 200 }}>
                     {`${session.stakes.smallBlind}/${session.stakes.bigBlind}${
-                      session.stakes.ante ? ` (${session.stakes.ante})` : ''
+                      session.stakes.ante ? ` (${session.stakes.ante})` : ""
                     }`}
                   </TableCell>
-                  <TableCell sx={{ minWidth: 100 }}>
+                  <TableCell sx={{ minWidth: 200 }}>
+                    <Box
+                      component="span"
+                      sx={{
+                        px: 1,
+                        py: 0.5,
+                        borderRadius: 1,
+                        fontSize: "0.875rem",
+                        ...(session.isManual
+                          ? {
+                              bgcolor: "info.main",
+                              color: "info.contrastText",
+                            }
+                          : {
+                              bgcolor: "#673ab7",
+                              color: "white",
+                            }),
+                      }}
+                    >
+                      {session.isManual ? "Manual" : "In-app"}
+                    </Box>
+                  </TableCell>
+                  <TableCell sx={{ minWidth: 200 }}>
                     <Box
                       component="span"
                       sx={{
@@ -307,22 +960,29 @@ function MySessions() {
                       {session.status}
                     </Box>
                   </TableCell>
-                  <TableCell sx={{ minWidth: 80 }}>{session.playerCount}</TableCell>
-                  <TableCell sx={{ minWidth: 100 }}>{session.playTime || "-"}</TableCell>
-                  <TableCell align="right" sx={{ minWidth: 100 }}>
+                  <TableCell sx={{ minWidth: 200 }}>
+                    {session.playerCount}
+                  </TableCell>
+                  <TableCell sx={{ minWidth: 200 }}>
+                    {session.playTime || "-"}
+                  </TableCell>
+                  <TableCell sx={{ minWidth: 200 }}>
                     {formatHands(session.hands)}
                   </TableCell>
-                  <TableCell align="right" sx={{ minWidth: 80 }}>{session.buyinCount}</TableCell>
-                  <TableCell align="right" sx={{ minWidth: 100 }}>₪{session.buyinTotal}</TableCell>
-                  <TableCell align="right" sx={{ minWidth: 100 }}>
+                  <TableCell sx={{ minWidth: 200 }}>
+                    {session.buyinCount}
+                  </TableCell>
+                  <TableCell sx={{ minWidth: 200 }}>
+                    ₪{session.buyinTotal}
+                  </TableCell>
+                  <TableCell sx={{ minWidth: 200 }}>
                     {session.finalStack !== null
                       ? `₪${session.finalStack}`
                       : "-"}
                   </TableCell>
                   <TableCell
-                    align="right"
                     sx={{
-                      minWidth: 80,
+                      minWidth: 200,
                       color:
                         session.profitLoss === null
                           ? "inherit"
@@ -341,9 +1001,8 @@ function MySessions() {
                       : "-"}
                   </TableCell>
                   <TableCell
-                    align="right"
                     sx={{
-                      minWidth: 80,
+                      minWidth: 200,
                       color:
                         session.profitLossBB === null
                           ? "inherit"
@@ -356,7 +1015,9 @@ function MySessions() {
                     }}
                   >
                     {session.profitLossBB !== null
-                      ? `${session.profitLossBB > 0 ? "+" : ""}${session.profitLossBB.toFixed(1)}`
+                      ? `${
+                          session.profitLossBB > 0 ? "+" : ""
+                        }${session.profitLossBB.toFixed(1)}`
                       : "-"}
                   </TableCell>
                 </TableRow>
@@ -364,9 +1025,240 @@ function MySessions() {
             </TableBody>
           </Table>
         </TableContainer>
+
+        {/* Filter Popovers */}
+        {/* Date Filter */}
+        <Popover
+          open={Boolean(filterAnchors["date"])}
+          anchorEl={filterAnchors["date"]}
+          onClose={() => handleFilterClose("date")}
+          anchorOrigin={{
+            vertical: "bottom",
+            horizontal: "left",
+          }}
+        >
+          <Box sx={{ p: 2, minWidth: 200 }}>
+            <FormControl fullWidth>
+              <InputLabel>Filter Type</InputLabel>
+              <Select
+                value={filters.date.type || ""}
+                onChange={(e) =>
+                  handleDateFilterChange(e.target.value as DateFilterType)
+                }
+              >
+                <MenuItem value="">None</MenuItem>
+                <MenuItem value="before">Before</MenuItem>
+                <MenuItem value="after">After</MenuItem>
+                <MenuItem value="between">Between</MenuItem>
+                <MenuItem value="last7">Last 7 days</MenuItem>
+                <MenuItem value="last30">Last 30 days</MenuItem>
+                <MenuItem value="last90">Last 90 days</MenuItem>
+              </Select>
+            </FormControl>
+            {filters.date.type === "before" && (
+              <TextField
+                type="date"
+                fullWidth
+                margin="normal"
+                value={filters.date.endDate?.toISOString().split("T")[0] || ""}
+                onChange={(e) =>
+                  handleDateFilterChange(
+                    "before",
+                    undefined,
+                    new Date(e.target.value)
+                  )
+                }
+              />
+            )}
+            {filters.date.type === "after" && (
+              <TextField
+                type="date"
+                fullWidth
+                margin="normal"
+                value={
+                  filters.date.startDate?.toISOString().split("T")[0] || ""
+                }
+                onChange={(e) =>
+                  handleDateFilterChange("after", new Date(e.target.value))
+                }
+              />
+            )}
+            {filters.date.type === "between" && (
+              <>
+                <TextField
+                  type="date"
+                  fullWidth
+                  margin="normal"
+                  label="Start Date"
+                  value={
+                    filters.date.startDate?.toISOString().split("T")[0] || ""
+                  }
+                  onChange={(e) =>
+                    handleDateFilterChange(
+                      "between",
+                      new Date(e.target.value),
+                      filters.date.endDate
+                    )
+                  }
+                />
+                <TextField
+                  type="date"
+                  fullWidth
+                  margin="normal"
+                  label="End Date"
+                  value={
+                    filters.date.endDate?.toISOString().split("T")[0] || ""
+                  }
+                  onChange={(e) =>
+                    handleDateFilterChange(
+                      "between",
+                      filters.date.startDate,
+                      new Date(e.target.value)
+                    )
+                  }
+                />
+              </>
+            )}
+          </Box>
+        </Popover>
+
+        {/* Dropdown Filters */}
+        {["club", "stakes", "type", "status"].map((columnId) => (
+          <Popover
+            key={columnId}
+            open={Boolean(filterAnchors[columnId])}
+            anchorEl={filterAnchors[columnId]}
+            onClose={() => handleFilterClose(columnId)}
+            anchorOrigin={{
+              vertical: "bottom",
+              horizontal: "left",
+            }}
+          >
+            <Box sx={{ p: 2, minWidth: 200 }}>
+              <FormControl fullWidth>
+                <InputLabel>
+                  {columnId.charAt(0).toUpperCase() + columnId.slice(1)}
+                </InputLabel>
+                <Select
+                  multiple
+                  value={filters[columnId as keyof Filters].selectedValues}
+                  onChange={handleDropdownFilterChange(
+                    columnId as keyof Filters
+                  )}
+                  input={
+                    <OutlinedInput
+                      label={
+                        columnId.charAt(0).toUpperCase() + columnId.slice(1)
+                      }
+                    />
+                  }
+                  renderValue={(selected) => (
+                    <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
+                      {selected.map((value) => (
+                        <Chip key={value} label={value} />
+                      ))}
+                    </Box>
+                  )}
+                >
+                  {(columnId === "club"
+                    ? availableClubs
+                    : columnId === "stakes"
+                    ? availableStakes
+                    : columnId === "type"
+                    ? availableTypes
+                    : availableStatuses
+                  ).map((option) => (
+                    <MenuItem key={option} value={option}>
+                      <Checkbox
+                        checked={
+                          filters[
+                            columnId as keyof Filters
+                          ].selectedValues.indexOf(option) > -1
+                        }
+                      />
+                      <ListItemText primary={option} />
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Box>
+          </Popover>
+        ))}
+
+        {/* Numeric Filters */}
+        {[
+          "players",
+          "playTime",
+          "hands",
+          "buyins",
+          "totalBuyins",
+          "finalStack",
+          "profitLoss",
+          "bbProfitLoss",
+        ].map((columnId) => (
+          <Popover
+            key={columnId}
+            open={Boolean(filterAnchors[columnId])}
+            anchorEl={filterAnchors[columnId]}
+            onClose={() => handleFilterClose(columnId)}
+            anchorOrigin={{
+              vertical: "bottom",
+              horizontal: "left",
+            }}
+          >
+            <Box sx={{ p: 2, minWidth: 200 }}>
+              <FormControl fullWidth>
+                <InputLabel>Operator</InputLabel>
+                <Select
+                  value={filters[columnId as keyof Filters]?.operator || ""}
+                  onChange={(e) =>
+                    handleNumericFilterChange(columnId as keyof Filters)(
+                      e.target.value as NumericFilterOperator,
+                      filters[columnId as keyof Filters]?.value || 0
+                    )
+                  }
+                >
+                  <MenuItem value="">None</MenuItem>
+                  <MenuItem value="equals">=</MenuItem>
+                  <MenuItem value="notEquals">≠</MenuItem>
+                  <MenuItem value="greaterThan">&gt;</MenuItem>
+                  <MenuItem value="greaterThanOrEqual">≥</MenuItem>
+                  <MenuItem value="lessThan">&lt;</MenuItem>
+                  <MenuItem value="lessThanOrEqual">≤</MenuItem>
+                </Select>
+              </FormControl>
+              {filters[columnId as keyof Filters]?.operator && (
+                <TextField
+                  type="number"
+                  fullWidth
+                  margin="normal"
+                  value={filters[columnId as keyof Filters]?.value || ""}
+                  onChange={(e) =>
+                    handleNumericFilterChange(columnId as keyof Filters)(
+                      filters[columnId as keyof Filters]
+                        ?.operator as NumericFilterOperator,
+                      parseFloat(e.target.value)
+                    )
+                  }
+                />
+              )}
+            </Box>
+          </Popover>
+        ))}
+
+        <ManualSessionForm
+          open={showManualForm}
+          onClose={handleManualFormClose}
+          initialData={selectedManualSession}
+          onSubmit={() => {
+            setRefreshTrigger((prev) => prev + 1);
+          }}
+          playerId={playerId!}
+        />
       </Paper>
     </Container>
   );
 }
 
 export default MySessions;
+
