@@ -93,10 +93,22 @@ export function ManualSessionForm({ open, onClose, initialData, onSubmit, player
         return;
       }
 
+      // Clean up the session data
+      const cleanStakes = {
+        smallBlind: formData.stakes?.smallBlind || 0,
+        bigBlind: formData.stakes?.bigBlind || 0,
+      };
+      
+      // Only add ante if it exists and is not empty
+      if (formData.stakes?.ante !== undefined && formData.stakes.ante !== null) {
+        (cleanStakes as any).ante = formData.stakes.ante;
+      }
+
       const sessionData = {
         ...formData,
         userId: currentUser.id,
         dateTime: formData.dateTime || Date.now(),
+        stakes: cleanStakes
       };
 
       console.log('Saving session for player:', playerId);
@@ -222,7 +234,7 @@ export function ManualSessionForm({ open, onClose, initialData, onSubmit, player
                     stakes: { 
                       smallBlind: prev.stakes?.smallBlind || 0,
                       bigBlind: prev.stakes?.bigBlind || 0,
-                      ...(value ? { ante: parseFloat(value) } : {})
+                      ...(value !== '' ? { ante: parseFloat(value) } : {})
                     }
                   }));
                 }}
@@ -260,7 +272,7 @@ export function ManualSessionForm({ open, onClose, initialData, onSubmit, player
               required
               inputProps={{ step: "0.5", min: "0" }}
               InputProps={{ startAdornment: <InputAdornment position="start">₪</InputAdornment> }}
-              value={formData.finalStack || ''}
+              value={formData.finalStack !== undefined ? formData.finalStack : ''}
               onChange={(e) => setFormData(prev => ({
                 ...prev,
                 finalStack: parseFloat(e.target.value)
