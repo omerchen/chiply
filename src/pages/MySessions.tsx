@@ -25,6 +25,7 @@ import {
   ListItemText,
   OutlinedInput,
   Chip,
+  TablePagination,
 } from "@mui/material";
 import FilterListIcon from "@mui/icons-material/FilterList";
 import EventIcon from "@mui/icons-material/Event";
@@ -52,6 +53,7 @@ interface Session {
 }
 
 interface ProcessedSession {
+  number: number;
   id: string;
   date: number;
   status: "Scheduled" | "Playing" | "Completed";
@@ -167,6 +169,8 @@ function MySessions() {
   const [manualSessions, setManualSessions] = useState<ProcessedSession[]>([]);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [playerId, setPlayerId] = useState<string | null>(null);
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
 
   // Filter states
   const [filters, setFilters] = useState<Filters>({
@@ -199,6 +203,7 @@ function MySessions() {
   // Add sorting state
   type SortDirection = "asc" | "desc";
   type SortField =
+    | "number"
     | "date"
     | "club"
     | "stakes"
@@ -217,7 +222,7 @@ function MySessions() {
     field: SortField;
     direction: SortDirection;
   }>({
-    field: "date",
+    field: "number",
     direction: "desc",
   });
 
@@ -351,6 +356,8 @@ function MySessions() {
     const direction = sortConfig.direction === "asc" ? 1 : -1;
 
     switch (sortConfig.field) {
+      case "number":
+        return (a.number - b.number) * direction;
       case "date":
         return (a.date - b.date) * direction;
       case "club":
@@ -452,6 +459,8 @@ function MySessions() {
         // Store the player ID
         setPlayerId(userPlayerIds[0]);
 
+        let processedSessions: ProcessedSession[] = [];
+
         // Get all sessions
         const sessionsRef = ref(db, "sessions");
         const sessionsSnapshot = await get(sessionsRef);
@@ -462,111 +471,107 @@ function MySessions() {
         const clubsSnapshot = await get(clubsRef);
         const clubsData = clubsSnapshot.val();
 
-        if (!sessionsData) {
-          setLoading(false);
-          return;
-        }
+        if (sessionsData) {
+          // Process in-game sessions
+          processedSessions = Object.entries(sessionsData)
+            .map(([sessionId, session]: [string, any]) => {
+              if (!session) return null;
 
-        // Process sessions
-        const processedSessions: ProcessedSession[] = Object.entries(
-          sessionsData
-        )
-          .map(([sessionId, session]: [string, any]) => {
-            if (!session) return null;
+              // Check if the player is a participant in this session
+              const isPlayerParticipant =
+                session.data?.players && userPlayerIds[0] in session.data.players;
 
-            // Check if the player is a participant in this session
-            const isPlayerParticipant =
-              session.data?.players && userPlayerIds[0] in session.data.players;
+              if (!isPlayerParticipant) return null;
 
-            if (!isPlayerParticipant) return null;
+              // Filter buy-ins and cashouts for this player
+              const playerBuyins = Object.values(
+                session.data?.buyins || {}
+              ).filter((buyin: any) => buyin.playerId === userPlayerIds[0]);
+              const playerCashouts = Object.values(
+                session.data?.cashouts || {}
+              ).filter((cashout: any) => cashout.playerId === userPlayerIds[0]);
 
-            // Filter buy-ins and cashouts for this player
-            const playerBuyins = Object.values(
-              session.data?.buyins || {}
-            ).filter((buyin: any) => buyin.playerId === userPlayerIds[0]);
-            const playerCashouts = Object.values(
-              session.data?.cashouts || {}
-            ).filter((cashout: any) => cashout.playerId === userPlayerIds[0]);
+              // Calculate play time
+              let playTime = null;
+              if (playerBuyins.length > 0) {
+                const firstBuyinTime = Math.min(
+                  ...playerBuyins.map((b: any) => b.time)
+                );
+                let lastTime: number;
 
-            // Calculate play time
-            let playTime = null;
-            if (playerBuyins.length > 0) {
-              const firstBuyinTime = Math.min(
-                ...playerBuyins.map((b: any) => b.time)
+                if (playerCashouts.length > 0) {
+                  lastTime = Math.max(...playerCashouts.map((c: any) => c.time));
+                } else if (session.status === "open") {
+                  lastTime = Date.now();
+                } else {
+                  lastTime = firstBuyinTime;
+                }
+
+                const durationMinutes = (lastTime - firstBuyinTime) / (1000 * 60);
+                const hours = Math.floor(durationMinutes / 60);
+                const minutes = Math.floor(durationMinutes % 60);
+
+                if (hours > 0 && minutes > 0) {
+                  playTime = `${hours}h ${minutes}m`;
+                } else if (hours > 0) {
+                  playTime = `${hours}h`;
+                } else {
+                  playTime = `${minutes}m`;
+                }
+              }
+
+              // Get number of players directly from the players object
+              const playerCount = session.data?.players
+                ? Object.keys(session.data.players).length
+                : 0;
+
+              const totalBuyins = playerBuyins.reduce(
+                (sum: number, buyin: any) => sum + buyin.amount,
+                0
               );
-              let lastTime: number;
+              const buyinCount = playerBuyins.length;
+              const finalStack =
+                playerCashouts.length > 0
+                  ? (playerCashouts[playerCashouts.length - 1] as PlayerCashout)
+                      .stackValue
+                  : null;
+              const profitLoss =
+                finalStack !== null ? finalStack - totalBuyins : null;
+              const profitLossBB =
+                profitLoss !== null
+                  ? profitLoss / session.details.stakes.bigBlind
+                  : null;
 
-              if (playerCashouts.length > 0) {
-                lastTime = Math.max(...playerCashouts.map((c: any) => c.time));
-              } else if (session.status === "open") {
-                lastTime = Date.now();
-              } else {
-                lastTime = firstBuyinTime;
-              }
+              // Calculate hands based on play time
+              const hands =
+                playTime && playerCount > 0
+                  ? getApproximateHands(
+                      playerCount,
+                      convertPlayTimeToMinutes(playTime)
+                    )
+                  : null;
 
-              const durationMinutes = (lastTime - firstBuyinTime) / (1000 * 60);
-              const hours = Math.floor(durationMinutes / 60);
-              const minutes = Math.floor(durationMinutes % 60);
-
-              if (hours > 0 && minutes > 0) {
-                playTime = `${hours}h ${minutes}m`;
-              } else if (hours > 0) {
-                playTime = `${hours}h`;
-              } else {
-                playTime = `${minutes}m`;
-              }
-            }
-
-            // Get number of players directly from the players object
-            const playerCount = session.data?.players
-              ? Object.keys(session.data.players).length
-              : 0;
-
-            const totalBuyins = playerBuyins.reduce(
-              (sum: number, buyin: any) => sum + buyin.amount,
-              0
-            );
-            const buyinCount = playerBuyins.length;
-            const finalStack =
-              playerCashouts.length > 0
-                ? (playerCashouts[playerCashouts.length - 1] as PlayerCashout)
-                    .stackValue
-                : null;
-            const profitLoss =
-              finalStack !== null ? finalStack - totalBuyins : null;
-            const profitLossBB =
-              profitLoss !== null
-                ? profitLoss / session.details.stakes.bigBlind
-                : null;
-
-            // Calculate hands based on play time
-            const hands =
-              playTime && playerCount > 0
-                ? getApproximateHands(
-                    playerCount,
-                    convertPlayTimeToMinutes(playTime)
-                  )
-                : null;
-
-            return {
-              id: sessionId,
-              date: session.details.startTime,
-              club: session.details.type,
-              stakes: session.details.stakes,
-              status: session.status === "open" ? "Playing" : "Completed",
-              playerCount,
-              playTime,
-              hands,
-              buyinCount,
-              buyinTotal: totalBuyins,
-              finalStack,
-              profitLoss,
-              profitLossBB,
-              isManual: false,
-              clubName: clubsData[session.clubId]?.name || "Unknown Club",
-            } as ProcessedSession;
-          })
-          .filter((session): session is ProcessedSession => session !== null);
+              return {
+                id: sessionId,
+                number: 0,
+                date: session.details.startTime,
+                club: session.details.type,
+                stakes: session.details.stakes,
+                status: session.status === "open" ? "Playing" : "Completed",
+                playerCount,
+                playTime,
+                hands,
+                buyinCount,
+                buyinTotal: totalBuyins,
+                finalStack,
+                profitLoss,
+                profitLossBB,
+                isManual: false,
+                clubName: clubsData[session.clubId]?.name || "Unknown Club",
+              } as ProcessedSession;
+            })
+            .filter((session): session is ProcessedSession => session !== null);
+        }
 
         // Fetch manual sessions
         if (userPlayerIds[0]) {
@@ -590,6 +595,7 @@ function MySessions() {
 
               return {
                 id,
+                number: 0,
                 date: session.dateTime,
                 status: "Completed",
                 playTime: `${Math.floor(session.duration)}h ${Math.floor(
@@ -611,7 +617,7 @@ function MySessions() {
               };
             });
 
-            // Combine and sort all sessions, ensuring no duplicates by ID
+            // Combine all sessions, ensuring no duplicates by ID
             const allSessions = [...processedSessions];
             processedManualSessions.forEach((manualSession) => {
               if (
@@ -621,7 +627,13 @@ function MySessions() {
               }
             });
 
-            setSessions(allSessions.sort((a, b) => b.date - a.date));
+            setSessions(allSessions
+              .sort((a, b) => b.date - a.date)
+              .map((session, index) => ({
+                ...session,
+                number: index + 1
+              }))
+            );
           } else {
             setSessions(processedSessions.sort((a, b) => b.date - a.date));
           }
@@ -772,6 +784,15 @@ function MySessions() {
     );
   };
 
+  const handleChangePage = (event: unknown, newPage: number) => {
+    setPage(newPage);
+  };
+
+  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
+  };
+
   if (loading) {
     return (
       <Container
@@ -829,10 +850,51 @@ function MySessions() {
           </Button>
         </Stack>
 
-        <TableContainer>
+        <TableContainer
+          sx={{
+            position: 'relative',
+            '& th:first-of-type, & td:first-of-type': {
+              position: 'sticky',
+              left: 0,
+              background: 'white',
+              zIndex: 1,
+              borderRight: '1px solid rgba(224, 224, 224, 1)',
+              boxShadow: (theme) => 
+                `2px 0 4px -2px ${theme.palette.mode === 'light' ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)'}`,
+            },
+            '& th:first-of-type': {
+              zIndex: 2,
+              background: '#f5f5f5',
+            },
+            overflowX: 'auto',
+            '&::-webkit-scrollbar': {
+              height: '8px',
+              width: '8px',
+            },
+            '&::-webkit-scrollbar-track': {
+              background: '#f1f1f1',
+              borderRadius: '4px',
+            },
+            '&::-webkit-scrollbar-thumb': {
+              background: '#888',
+              borderRadius: '4px',
+              '&:hover': {
+                background: '#666',
+              },
+            },
+          }}
+        >
           <Table>
             <TableHead>
               <TableRow>
+                <TableCell
+                  sx={{ minWidth: 80, cursor: "pointer" }}
+                  onClick={() => handleSort("number")}
+                >
+                  <Stack direction="row" alignItems="center">
+                    # {renderSortIndicator("number")}
+                  </Stack>
+                </TableCell>
                 <TableCell
                   sx={{ minWidth: 200, cursor: "pointer" }}
                   onClick={() => handleSort("date")}
@@ -953,141 +1015,161 @@ function MySessions() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {sortedSessions.map((session) => (
-                <TableRow
-                  key={session.id}
-                  onClick={() => handleRowClick(session)}
-                  sx={{
-                    cursor: session.isManual ? "pointer" : "default",
-                    "&:hover": session.isManual
-                      ? { bgcolor: "action.hover" }
-                      : {},
-                  }}
-                >
-                  <TableCell sx={{ minWidth: 200 }}>
-                    {formatRelativeTime(session.date)}
-                  </TableCell>
-                  <TableCell sx={{ minWidth: 200 }}>
-                    {session.clubName}
-                    {session.location && ` (${session.location})`}
-                  </TableCell>
-                  <TableCell sx={{ minWidth: 200 }}>
-                    {`${session.stakes.smallBlind}/${session.stakes.bigBlind}${
-                      session.stakes.ante ? ` (${session.stakes.ante})` : ""
-                    }`}
-                  </TableCell>
-                  <TableCell sx={{ minWidth: 200 }}>
-                    <Box
-                      component="span"
-                      sx={{
-                        px: 1,
-                        py: 0.5,
-                        borderRadius: 1,
-                        fontSize: "0.875rem",
-                        ...(session.isManual
-                          ? {
-                              bgcolor: "info.main",
-                              color: "info.contrastText",
-                            }
-                          : {
-                              bgcolor: "#673ab7",
-                              color: "white",
-                            }),
-                      }}
-                    >
-                      {session.isManual ? "Manual" : "In-app"}
-                    </Box>
-                  </TableCell>
-                  <TableCell sx={{ minWidth: 200 }}>
-                    <Box
-                      component="span"
-                      sx={{
-                        px: 1,
-                        py: 0.5,
-                        borderRadius: 1,
-                        fontSize: "0.875rem",
-                        ...(session.status === "Completed" && {
-                          bgcolor: "success.main",
-                          color: "success.contrastText",
-                        }),
-                        ...(session.status === "Playing" && {
-                          bgcolor: "warning.main",
-                          color: "warning.contrastText",
-                        }),
-                        ...(session.status === "Scheduled" && {
-                          bgcolor: "info.main",
-                          color: "info.contrastText",
-                        }),
-                      }}
-                    >
-                      {session.status}
-                    </Box>
-                  </TableCell>
-                  <TableCell sx={{ minWidth: 200 }}>
-                    {session.playerCount}
-                  </TableCell>
-                  <TableCell sx={{ minWidth: 200 }}>
-                    {session.playTime || "-"}
-                  </TableCell>
-                  <TableCell sx={{ minWidth: 200 }}>
-                    {formatHands(session.hands)}
-                  </TableCell>
-                  <TableCell sx={{ minWidth: 200 }}>
-                    {session.buyinCount}
-                  </TableCell>
-                  <TableCell sx={{ minWidth: 200 }}>
-                    ₪{session.buyinTotal}
-                  </TableCell>
-                  <TableCell sx={{ minWidth: 200 }}>
-                    {session.finalStack !== null
-                      ? `₪${session.finalStack}`
-                      : "-"}
-                  </TableCell>
-                  <TableCell
+              {sortedSessions
+                .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                .map((session) => (
+                  <TableRow
+                    key={session.id}
+                    onClick={() => handleRowClick(session)}
                     sx={{
-                      minWidth: 200,
-                      color:
-                        session.profitLoss === null
-                          ? "inherit"
-                          : session.profitLoss > 0
-                          ? "success.main"
-                          : session.profitLoss < 0
-                          ? "error.main"
-                          : "inherit",
-                      fontWeight: "bold",
+                      cursor: session.isManual ? "pointer" : "default",
+                      "&:hover": session.isManual
+                        ? { bgcolor: "action.hover" }
+                        : {},
                     }}
                   >
-                    {session.profitLoss !== null
-                      ? `${session.profitLoss > 0 ? "+" : ""}₪${
-                          session.profitLoss
-                        }`
-                      : "-"}
-                  </TableCell>
-                  <TableCell
-                    sx={{
-                      minWidth: 200,
-                      color:
-                        session.profitLossBB === null
-                          ? "inherit"
-                          : session.profitLossBB > 0
-                          ? "success.main"
-                          : session.profitLossBB < 0
-                          ? "error.main"
-                          : "inherit",
-                      fontWeight: "bold",
-                    }}
-                  >
-                    {session.profitLossBB !== null
-                      ? `${
-                          session.profitLossBB > 0 ? "+" : ""
-                        }${session.profitLossBB.toFixed(1)}`
-                      : "-"}
-                  </TableCell>
-                </TableRow>
-              ))}
+                    <TableCell sx={{ minWidth: 80 }}>
+                      #{session.number}
+                    </TableCell>
+                    <TableCell sx={{ minWidth: 200 }}>
+                      {formatRelativeTime(session.date)}
+                    </TableCell>
+                    <TableCell sx={{ minWidth: 200 }}>
+                      {session.clubName}
+                      {session.location && ` (${session.location})`}
+                    </TableCell>
+                    <TableCell sx={{ minWidth: 200 }}>
+                      {`${session.stakes.smallBlind}/${session.stakes.bigBlind}${
+                        session.stakes.ante ? ` (${session.stakes.ante})` : ""
+                      }`}
+                    </TableCell>
+                    <TableCell sx={{ minWidth: 200 }}>
+                      <Box
+                        component="span"
+                        sx={{
+                          px: 1,
+                          py: 0.5,
+                          borderRadius: 1,
+                          fontSize: "0.875rem",
+                          ...(session.isManual
+                            ? {
+                                bgcolor: "info.main",
+                                color: "info.contrastText",
+                              }
+                            : {
+                                bgcolor: "#673ab7",
+                                color: "white",
+                              }),
+                        }}
+                      >
+                        {session.isManual ? "Manual" : "In-app"}
+                      </Box>
+                    </TableCell>
+                    <TableCell sx={{ minWidth: 200 }}>
+                      <Box
+                        component="span"
+                        sx={{
+                          px: 1,
+                          py: 0.5,
+                          borderRadius: 1,
+                          fontSize: "0.875rem",
+                          ...(session.status === "Completed" && {
+                            bgcolor: "success.main",
+                            color: "success.contrastText",
+                          }),
+                          ...(session.status === "Playing" && {
+                            bgcolor: "warning.main",
+                            color: "warning.contrastText",
+                          }),
+                          ...(session.status === "Scheduled" && {
+                            bgcolor: "info.main",
+                            color: "info.contrastText",
+                          }),
+                        }}
+                      >
+                        {session.status}
+                      </Box>
+                    </TableCell>
+                    <TableCell sx={{ minWidth: 200 }}>
+                      {session.playerCount}
+                    </TableCell>
+                    <TableCell sx={{ minWidth: 200 }}>
+                      {session.playTime || "-"}
+                    </TableCell>
+                    <TableCell sx={{ minWidth: 200 }}>
+                      {formatHands(session.hands)}
+                    </TableCell>
+                    <TableCell sx={{ minWidth: 200 }}>
+                      {session.buyinCount}
+                    </TableCell>
+                    <TableCell sx={{ minWidth: 200 }}>
+                      ₪{session.buyinTotal}
+                    </TableCell>
+                    <TableCell sx={{ minWidth: 200 }}>
+                      {session.finalStack !== null
+                        ? `₪${session.finalStack}`
+                        : "-"}
+                    </TableCell>
+                    <TableCell
+                      sx={{
+                        minWidth: 200,
+                        color:
+                          session.profitLoss === null
+                            ? "inherit"
+                            : session.profitLoss > 0
+                            ? "success.main"
+                            : session.profitLoss < 0
+                            ? "error.main"
+                            : "inherit",
+                        fontWeight: "bold",
+                      }}
+                    >
+                      {session.profitLoss !== null
+                        ? `${session.profitLoss > 0 ? "+" : ""}₪${
+                            session.profitLoss
+                          }`
+                        : "-"}
+                    </TableCell>
+                    <TableCell
+                      sx={{
+                        minWidth: 200,
+                        color:
+                          session.profitLossBB === null
+                            ? "inherit"
+                            : session.profitLossBB > 0
+                            ? "success.main"
+                            : session.profitLossBB < 0
+                            ? "error.main"
+                            : "inherit",
+                        fontWeight: "bold",
+                      }}
+                    >
+                      {session.profitLossBB !== null
+                        ? `${
+                            session.profitLossBB > 0 ? "+" : ""
+                          }${session.profitLossBB.toFixed(1)}`
+                        : "-"}
+                    </TableCell>
+                  </TableRow>
+                ))}
             </TableBody>
           </Table>
         </TableContainer>
+
+        <TablePagination
+          rowsPerPageOptions={[5, 10, 25, 50]}
+          component="div"
+          count={sortedSessions.length}
+          rowsPerPage={rowsPerPage}
+          page={page}
+          onPageChange={handleChangePage}
+          onRowsPerPageChange={handleChangeRowsPerPage}
+          sx={{
+            '.MuiTablePagination-select': {
+              paddingTop: '6px',  // Align the rows per page dropdown
+            }
+          }}
+        />
 
         {/* Filter Popovers */}
         {/* Date Filter */}
