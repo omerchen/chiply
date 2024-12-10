@@ -26,11 +26,12 @@ import {
   OutlinedInput,
   Chip,
   TablePagination,
+  Tooltip,
 } from "@mui/material";
 import FilterListIcon from "@mui/icons-material/FilterList";
 import EventIcon from "@mui/icons-material/Event";
 import AddIcon from "@mui/icons-material/Add";
-import { ref, get } from "firebase/database";
+import { ref, get, set, remove } from "firebase/database";
 import { db } from "../config/firebase";
 import { getCurrentUser } from "../services/auth";
 import EmptyState from "../components/EmptyState";
@@ -41,6 +42,13 @@ import {
 } from "../utils/gameUtils";
 import { format } from "date-fns";
 import { ManualSessionForm } from "../components/ManualSessionForm";
+import SessionRatingDialog from "../components/SessionRatingDialog";
+import {
+  SessionRating,
+  RatingValue,
+  RATING_EMOJIS,
+  RATING_LABELS,
+} from "../types/rating";
 
 interface SessionDetails {
   stakes: {
@@ -73,6 +81,7 @@ interface ProcessedSession {
   profitLossBB: number | null;
   isManual?: boolean;
   location?: string;
+  rating?: SessionRating;
 }
 
 interface CashoutData {
@@ -143,6 +152,16 @@ interface DropdownFilter {
   selectedValues: string[];
 }
 
+// Add this type for the rating filter
+type RatingFilterOperator =
+  | "equals"
+  | "greaterThan"
+  | "greaterThanOrEqual"
+  | "lessThan"
+  | "lessThanOrEqual"
+  | "isEmpty"
+  | "isNotEmpty";
+
 interface Filters {
   date: DateFilter;
   club: DropdownFilter;
@@ -157,6 +176,7 @@ interface Filters {
   finalStack: NumericFilter | null;
   profitLoss: NumericFilter | null;
   bbProfitLoss: NumericFilter | null;
+  rating: { operator: RatingFilterOperator; value?: number } | null;
 }
 
 function MySessions() {
@@ -187,6 +207,7 @@ function MySessions() {
     finalStack: null,
     profitLoss: null,
     bbProfitLoss: null,
+    rating: null,
   });
 
   // Filter anchor elements
@@ -216,7 +237,8 @@ function MySessions() {
     | "totalBuyins"
     | "finalStack"
     | "profitLoss"
-    | "bbProfitLoss";
+    | "bbProfitLoss"
+    | "rating";
 
   const [sortConfig, setSortConfig] = useState<{
     field: SortField;
@@ -348,6 +370,33 @@ function MySessions() {
       }
     }
 
+    // Rating filter
+    if (filters.rating) {
+      switch (filters.rating.operator) {
+        case "equals":
+          if (!session.rating) return false;
+          return session.rating.rate === filters.rating.value;
+        case "greaterThan":
+          if (!session.rating) return false;
+          return session.rating.rate > (filters.rating.value || 0);
+        case "greaterThanOrEqual":
+          if (!session.rating) return false;
+          return session.rating.rate >= (filters.rating.value || 0);
+        case "lessThan":
+          if (!session.rating) return false;
+          return session.rating.rate < (filters.rating.value || 0);
+        case "lessThanOrEqual":
+          if (!session.rating) return false;
+          return session.rating.rate <= (filters.rating.value || 0);
+        case "isEmpty":
+          return !session.rating;
+        case "isNotEmpty":
+          return !!session.rating;
+        default:
+          return true;
+      }
+    }
+
     return true;
   });
 
@@ -397,6 +446,9 @@ function MySessions() {
         return ((a.profitLoss || 0) - (b.profitLoss || 0)) * direction;
       case "bbProfitLoss":
         return ((a.profitLossBB || 0) - (b.profitLossBB || 0)) * direction;
+      case "rating":
+        const getRatingValue = (s: ProcessedSession) => s.rating?.rate || 0;
+        return (getRatingValue(a) - getRatingValue(b)) * direction;
       default:
         return 0;
     }
@@ -431,6 +483,46 @@ function MySessions() {
     return `${relativeText} (${format(sessionDate, "dd/MM")})`;
   };
 
+  const [ratingDialogOpen, setRatingDialogOpen] = useState(false);
+  const [selectedSessionForRating, setSelectedSessionForRating] =
+    useState<ProcessedSession | null>(null);
+
+  const handleRatingClick = (
+    session: ProcessedSession,
+    event: React.MouseEvent
+  ) => {
+    event.stopPropagation();
+    setSelectedSessionForRating(session);
+    setRatingDialogOpen(true);
+  };
+
+  const handleRatingSave = async (
+    sessionId: string,
+    ratingData: Omit<SessionRating, "createdAt" | "updatedAt">
+  ) => {
+    if (!playerId) return;
+
+    const rating: SessionRating = {
+      ...ratingData,
+      createdAt: selectedSessionForRating?.rating?.createdAt || Date.now(),
+      updatedAt: Date.now(),
+    };
+
+    await set(ref(db, `players/${playerId}/ratings/${sessionId}`), rating);
+    setRatingDialogOpen(false);
+    setRefreshTrigger((prev) => prev + 1);
+  };
+
+  const handleRatingDelete = async () => {
+    if (!playerId || !selectedSessionForRating) return;
+
+    await remove(
+      ref(db, `players/${playerId}/ratings/${selectedSessionForRating.id}`)
+    );
+    setRatingDialogOpen(false);
+    setRefreshTrigger((prev) => prev + 1);
+  };
+
   useEffect(() => {
     const fetchSessions = async () => {
       try {
@@ -459,6 +551,11 @@ function MySessions() {
         // Store the player ID
         setPlayerId(userPlayerIds[0]);
 
+        // Fetch ratings
+        const ratingsRef = ref(db, `players/${userPlayerIds[0]}/ratings`);
+        const ratingsSnapshot = await get(ratingsRef);
+        const ratingsData = ratingsSnapshot.val();
+
         let processedSessions: ProcessedSession[] = [];
 
         // Get all sessions
@@ -479,7 +576,8 @@ function MySessions() {
 
               // Check if the player is a participant in this session
               const isPlayerParticipant =
-                session.data?.players && userPlayerIds[0] in session.data.players;
+                session.data?.players &&
+                userPlayerIds[0] in session.data.players;
 
               if (!isPlayerParticipant) return null;
 
@@ -500,14 +598,17 @@ function MySessions() {
                 let lastTime: number;
 
                 if (playerCashouts.length > 0) {
-                  lastTime = Math.max(...playerCashouts.map((c: any) => c.time));
+                  lastTime = Math.max(
+                    ...playerCashouts.map((c: any) => c.time)
+                  );
                 } else if (session.status === "open") {
                   lastTime = Date.now();
                 } else {
                   lastTime = firstBuyinTime;
                 }
 
-                const durationMinutes = (lastTime - firstBuyinTime) / (1000 * 60);
+                const durationMinutes =
+                  (lastTime - firstBuyinTime) / (1000 * 60);
                 const hours = Math.floor(durationMinutes / 60);
                 const minutes = Math.floor(durationMinutes % 60);
 
@@ -568,6 +669,7 @@ function MySessions() {
                 profitLossBB,
                 isManual: false,
                 clubName: clubsData[session.clubId]?.name || "Unknown Club",
+                rating: ratingsData?.[sessionId],
               } as ProcessedSession;
             })
             .filter((session): session is ProcessedSession => session !== null);
@@ -614,6 +716,7 @@ function MySessions() {
                   session.stakes.bigBlind,
                 isManual: true,
                 location: session.location,
+                rating: ratingsData?.[id],
               };
             });
 
@@ -627,12 +730,13 @@ function MySessions() {
               }
             });
 
-            setSessions(allSessions
-              .sort((a, b) => b.date - a.date)
-              .map((session, index) => ({
-                ...session,
-                number: index + 1
-              }))
+            setSessions(
+              allSessions
+                .sort((a, b) => b.date - a.date)
+                .map((session, index) => ({
+                  ...session,
+                  number: index + 1,
+                }))
             );
           } else {
             setSessions(processedSessions.sort((a, b) => b.date - a.date));
@@ -788,9 +892,22 @@ function MySessions() {
     setPage(newPage);
   };
 
-  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChangeRowsPerPage = (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
     setRowsPerPage(parseInt(event.target.value, 10));
     setPage(0);
+  };
+
+  // Add this function to handle rating filter
+  const handleRatingFilterChange = (
+    operator: RatingFilterOperator,
+    value?: number
+  ) => {
+    setFilters((prev) => ({
+      ...prev,
+      rating: { operator, value },
+    }));
   };
 
   if (loading) {
@@ -839,12 +956,12 @@ function MySessions() {
             startIcon={<AddIcon />}
             onClick={() => setShowManualForm(true)}
             sx={{
-              '& .MuiButton-startIcon': {
-                margin: { xs: '0', sm: '-4px 8px -4px -4px' }
-              }
+              "& .MuiButton-startIcon": {
+                margin: { xs: "0", sm: "-4px 8px -4px -4px" },
+              },
             }}
           >
-            <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
+            <Box sx={{ display: { xs: "none", sm: "block" } }}>
               Add Manual Session
             </Box>
           </Button>
@@ -852,34 +969,38 @@ function MySessions() {
 
         <TableContainer
           sx={{
-            position: 'relative',
-            '& th:first-of-type, & td:first-of-type': {
-              position: 'sticky',
+            position: "relative",
+            "& th:first-of-type, & td:first-of-type": {
+              position: "sticky",
               left: 0,
-              background: 'white',
+              background: "white",
               zIndex: 1,
-              borderRight: '1px solid rgba(224, 224, 224, 1)',
-              boxShadow: (theme) => 
-                `2px 0 4px -2px ${theme.palette.mode === 'light' ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)'}`,
+              borderRight: "1px solid rgba(224, 224, 224, 1)",
+              boxShadow: (theme) =>
+                `2px 0 4px -2px ${
+                  theme.palette.mode === "light"
+                    ? "rgba(0,0,0,0.1)"
+                    : "rgba(255,255,255,0.1)"
+                }`,
             },
-            '& th:first-of-type': {
+            "& th:first-of-type": {
               zIndex: 2,
-              background: '#f5f5f5',
+              background: "#f5f5f5",
             },
-            overflowX: 'auto',
-            '&::-webkit-scrollbar': {
-              height: '8px',
-              width: '8px',
+            overflowX: "auto",
+            "&::-webkit-scrollbar": {
+              height: "8px",
+              width: "8px",
             },
-            '&::-webkit-scrollbar-track': {
-              background: '#f1f1f1',
-              borderRadius: '4px',
+            "&::-webkit-scrollbar-track": {
+              background: "#f1f1f1",
+              borderRadius: "4px",
             },
-            '&::-webkit-scrollbar-thumb': {
-              background: '#888',
-              borderRadius: '4px',
-              '&:hover': {
-                background: '#666',
+            "&::-webkit-scrollbar-thumb": {
+              background: "#888",
+              borderRadius: "4px",
+              "&:hover": {
+                background: "#666",
               },
             },
           }}
@@ -1012,6 +1133,15 @@ function MySessions() {
                     {getFilterIcon("bbProfitLoss")}
                   </Stack>
                 </TableCell>
+                <TableCell
+                  sx={{ minWidth: 200, cursor: "pointer" }}
+                  onClick={() => handleSort("rating")}
+                >
+                  <Stack direction="row" alignItems="center">
+                    Rating {renderSortIndicator("rating")}
+                    {getFilterIcon("rating")}
+                  </Stack>
+                </TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -1039,7 +1169,9 @@ function MySessions() {
                       {session.location && ` (${session.location})`}
                     </TableCell>
                     <TableCell sx={{ minWidth: 200 }}>
-                      {`${session.stakes.smallBlind}/${session.stakes.bigBlind}${
+                      {`${session.stakes.smallBlind}/${
+                        session.stakes.bigBlind
+                      }${
                         session.stakes.ante ? ` (${session.stakes.ante})` : ""
                       }`}
                     </TableCell>
@@ -1150,6 +1282,69 @@ function MySessions() {
                           }${session.profitLossBB.toFixed(1)}`
                         : "-"}
                     </TableCell>
+                    <TableCell
+                      sx={{
+                        minWidth: 200,
+                        verticalAlign: "middle",
+                      }}
+                    >
+                      <Button
+                        onClick={(e) => handleRatingClick(session, e)}
+                        variant={session.rating ? "text" : "outlined"}
+                        size="small"
+                        sx={{
+                          height: "32px",
+                          minHeight: "32px",
+                        }}
+                      >
+                        {session.rating ? (
+                          <Stack
+                            direction="row"
+                            spacing={0.5}
+                            alignItems="center"
+                            sx={{ height: "100%" }}
+                          >
+                            <Typography
+                              component="span"
+                              sx={{
+                                display: "flex",
+                                alignItems: "center",
+                              }}
+                            >
+                              {RATING_EMOJIS[session.rating.rate]}
+                            </Typography>
+                            {session.rating.comment && (
+                              <Tooltip
+                                title={
+                                  <div style={{ whiteSpace: "pre-line" }}>
+                                    {session.rating.comment}
+                                  </div>
+                                }
+                                arrow
+                              >
+                                <Typography
+                                  component="span"
+                                  sx={{
+                                    color: "text.secondary",
+                                    maxWidth: "150px",
+                                    overflow: "hidden",
+                                    textOverflow: "ellipsis",
+                                    whiteSpace: "nowrap",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    height: "100%",
+                                  }}
+                                >
+                                  {session.rating.comment}
+                                </Typography>
+                              </Tooltip>
+                            )}
+                          </Stack>
+                        ) : (
+                          "Rate Session"
+                        )}
+                      </Button>
+                    </TableCell>
                   </TableRow>
                 ))}
             </TableBody>
@@ -1165,9 +1360,9 @@ function MySessions() {
           onPageChange={handleChangePage}
           onRowsPerPageChange={handleChangeRowsPerPage}
           sx={{
-            '.MuiTablePagination-select': {
-              paddingTop: '6px',  // Align the rows per page dropdown
-            }
+            ".MuiTablePagination-select": {
+              paddingTop: "6px", // Align the rows per page dropdown
+            },
           }}
         />
 
@@ -1402,6 +1597,73 @@ function MySessions() {
           </Popover>
         ))}
 
+        {/* Rating Filter */}
+        {["rating"].map((columnId) => (
+          <Popover
+            key={columnId}
+            open={Boolean(filterAnchors[columnId])}
+            anchorEl={filterAnchors[columnId]}
+            onClose={() => handleFilterClose(columnId)}
+            anchorOrigin={{
+              vertical: "bottom",
+              horizontal: "left",
+            }}
+          >
+            <Box sx={{ p: 2, minWidth: 200 }}>
+              <FormControl fullWidth>
+                <InputLabel>Filter Type</InputLabel>
+                <Select
+                  value={filters.rating?.operator || ""}
+                  onChange={(e) => {
+                    const operator = e.target.value as RatingFilterOperator;
+                    if (operator === "isEmpty" || operator === "isNotEmpty") {
+                      handleRatingFilterChange(operator);
+                    } else {
+                      handleRatingFilterChange(
+                        operator,
+                        filters.rating?.value || 5
+                      );
+                    }
+                  }}
+                >
+                  <MenuItem value="">None</MenuItem>
+                  <MenuItem value="equals">==</MenuItem>
+                  <MenuItem value="greaterThan">&gt;</MenuItem>
+                  <MenuItem value="greaterThanOrEqual">≥</MenuItem>
+                  <MenuItem value="lessThan">&lt;</MenuItem>
+                  <MenuItem value="lessThanOrEqual">≤</MenuItem>
+                  <MenuItem value="isEmpty">is empty (no rating)</MenuItem>
+                  <MenuItem value="isNotEmpty">is not empty (rated)</MenuItem>
+                </Select>
+              </FormControl>
+
+              {filters.rating?.operator &&
+                !["isEmpty", "isNotEmpty"].includes(
+                  filters.rating.operator
+                ) && (
+                  <FormControl fullWidth sx={{ mt: 2 }}>
+                    <InputLabel>Rating Value</InputLabel>
+                    <Select
+                      value={filters.rating.value || 5}
+                      onChange={(e) =>
+                        handleRatingFilterChange(
+                          filters.rating!.operator as RatingFilterOperator,
+                          e.target.value as number
+                        )
+                      }
+                    >
+                      {Object.entries(RATING_EMOJIS).map(([value, emoji]) => (
+                        <MenuItem key={value} value={Number(value)}>
+                          {emoji} {RATING_LABELS[Number(value) as RatingValue]}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                )}
+            </Box>
+          </Popover>
+        ))}
+
         <ManualSessionForm
           open={showManualForm}
           onClose={handleManualFormClose}
@@ -1410,6 +1672,16 @@ function MySessions() {
             setRefreshTrigger((prev) => prev + 1);
           }}
           playerId={playerId!}
+        />
+
+        <SessionRatingDialog
+          open={ratingDialogOpen}
+          onClose={() => setRatingDialogOpen(false)}
+          onSave={(rating) =>
+            handleRatingSave(selectedSessionForRating?.id || "", rating)
+          }
+          onDelete={handleRatingDelete}
+          initialRating={selectedSessionForRating?.rating}
         />
       </Paper>
     </Container>
