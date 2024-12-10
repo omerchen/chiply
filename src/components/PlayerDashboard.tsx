@@ -665,10 +665,21 @@ export default function PlayerDashboard({
     if (!dashboardRef.current || !player) return;
 
     try {
-      // Set temporary styles for better PDF rendering
+      // Store original styles
       const originalStyle = dashboardRef.current.style.width;
       const originalPosition = dashboardRef.current.style.position;
       const originalOverflow = dashboardRef.current.style.overflow;
+      
+      // Find and store the title element's original style
+      const titleElement = dashboardRef.current.querySelector('[data-dashboard-title]');
+      let originalTitleStyle = '';
+      if (titleElement) {
+        originalTitleStyle = (titleElement as HTMLElement).style.cssText;
+        // Set solid color for PDF
+        (titleElement as HTMLElement).style.background = 'none';
+        (titleElement as HTMLElement).style.WebkitBackgroundClip = 'unset';
+        (titleElement as HTMLElement).style.WebkitTextFillColor = '#673ab7';
+      }
 
       // Set styles for capture
       dashboardRef.current.style.width = "1200px";
@@ -691,6 +702,11 @@ export default function PlayerDashboard({
       dashboardRef.current.style.left = "";
       dashboardRef.current.style.transform = "";
       dashboardRef.current.style.overflow = originalOverflow;
+      
+      // Restore title's original style
+      if (titleElement) {
+        (titleElement as HTMLElement).style.cssText = originalTitleStyle;
+      }
 
       const pdf = new jsPDF({
         orientation: "landscape",
@@ -798,6 +814,7 @@ export default function PlayerDashboard({
             <Box>
               <Typography
                 variant="h4"
+                data-dashboard-title
                 sx={{
                   fontWeight: "bold",
                   background: "linear-gradient(45deg, #673ab7 30%, #9c27b0 90%)",
