@@ -21,6 +21,7 @@ interface ManualSessionFormProps {
   initialData?: ManualSession;
   onSubmit: () => void;
   playerId: string;
+  sessionNumber?: number;
 }
 
 export interface ManualSession {
@@ -40,7 +41,7 @@ export interface ManualSession {
   location?: string;
 }
 
-export function ManualSessionForm({ open, onClose, initialData, onSubmit, playerId }: ManualSessionFormProps) {
+export function ManualSessionForm({ open, onClose, initialData, onSubmit, playerId, sessionNumber }: ManualSessionFormProps) {
   const [error, setError] = useState<string | null>(null);
   
   const initialFormState = {
@@ -145,8 +146,10 @@ export function ManualSessionForm({ open, onClose, initialData, onSubmit, player
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+      <DialogTitle>
+        {initialData ? `Edit Session #${sessionNumber}` : "Add Manual Session"}
+      </DialogTitle>
       <form onSubmit={handleSubmit}>
-        <DialogTitle>{initialData ? 'Edit Session' : 'Add Manual Session'}</DialogTitle>
         <DialogContent>
           <Stack spacing={3} sx={{ mt: 2 }}>
             {error && <Alert severity="error">{error}</Alert>}

@@ -27,6 +27,7 @@ import {
   Chip,
   TablePagination,
   Tooltip,
+  LinearProgress,
 } from "@mui/material";
 import FilterListIcon from "@mui/icons-material/FilterList";
 import EventIcon from "@mui/icons-material/Event";
@@ -112,6 +113,7 @@ interface ManualSessionFormProps {
   initialData?: ManualSession;
   onSubmit: () => void;
   playerId: string;
+  sessionNumber?: number;
 }
 
 interface PlayerCashout {
@@ -732,17 +734,34 @@ function MySessions() {
 
             setSessions(
               allSessions
-                .sort((a, b) => b.date - a.date)
+                .sort((a, b) => a.date - b.date)
                 .map((session, index) => ({
                   ...session,
                   number: index + 1,
                 }))
+                .sort((a, b) => b.date - a.date)
             );
           } else {
-            setSessions(processedSessions.sort((a, b) => b.date - a.date));
+            setSessions(
+              processedSessions
+                .sort((a, b) => a.date - b.date)
+                .map((session, index) => ({
+                  ...session,
+                  number: index + 1,
+                }))
+                .sort((a, b) => b.date - a.date)
+            );
           }
         } else {
-          setSessions(processedSessions.sort((a, b) => b.date - a.date));
+          setSessions(
+            processedSessions
+              .sort((a, b) => a.date - b.date)
+              .map((session, index) => ({
+                ...session,
+                number: index + 1,
+              }))
+              .sort((a, b) => b.date - a.date)
+          );
         }
       } catch (error) {
         console.error("Error fetching sessions:", error);
@@ -910,6 +929,17 @@ function MySessions() {
     }));
   };
 
+  const getRatingProgress = (sessions: ProcessedSession[]) => {
+    const totalSessions = sessions.length;
+    const ratedSessions = sessions.filter(s => s.rating).length;
+    return {
+      ratedSessions,
+      totalSessions,
+      percentage: (ratedSessions / totalSessions) * 100,
+      remainingSessions: totalSessions - ratedSessions
+    };
+  };
+
   if (loading) {
     return (
       <Container
@@ -966,6 +996,42 @@ function MySessions() {
             </Box>
           </Button>
         </Stack>
+
+        <Box sx={{ mb: 3 }}>
+          <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
+            <Typography variant="body2" color="text.secondary">
+              Rating Progress
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              ({getRatingProgress(sessions).ratedSessions}/{getRatingProgress(sessions).totalSessions})
+            </Typography>
+          </Stack>
+          <LinearProgress 
+            variant="determinate" 
+            value={getRatingProgress(sessions).percentage}
+            sx={{ 
+              height: 8, 
+              borderRadius: 4,
+              bgcolor: 'grey.100',
+              '& .MuiLinearProgress-bar': {
+                borderRadius: 4,
+                bgcolor: getRatingProgress(sessions).percentage === 100 ? 'success.main' : 'primary.main'
+              }
+            }}
+          />
+          <Typography 
+            variant="body2" 
+            color={getRatingProgress(sessions).percentage === 100 ? "success.main" : "text.secondary"}
+            sx={{ mt: 1, fontWeight: 500 }}
+          >
+            {getRatingProgress(sessions).percentage === 100 
+              ? "🎉 You've rated all your sessions, well done!"
+              : `📝 You have ${getRatingProgress(sessions).remainingSessions} session${
+                  getRatingProgress(sessions).remainingSessions === 1 ? '' : 's'
+                } left to rate!`
+            }
+          </Typography>
+        </Box>
 
         <TableContainer
           sx={{
@@ -1134,7 +1200,11 @@ function MySessions() {
                   </Stack>
                 </TableCell>
                 <TableCell
-                  sx={{ minWidth: 200, cursor: "pointer" }}
+                  sx={{ 
+                    minWidth: 200, 
+                    cursor: "pointer",
+                    paddingLeft: 2
+                  }}
                   onClick={() => handleSort("rating")}
                 >
                   <Stack direction="row" alignItems="center">
@@ -1286,6 +1356,7 @@ function MySessions() {
                       sx={{
                         minWidth: 200,
                         verticalAlign: "middle",
+                        paddingLeft: 2
                       }}
                     >
                       <Button
@@ -1295,6 +1366,8 @@ function MySessions() {
                         sx={{
                           height: "32px",
                           minHeight: "32px",
+                          justifyContent: "flex-start",
+                          padding: "6px 8px"
                         }}
                       >
                         {session.rating ? (
@@ -1672,6 +1745,7 @@ function MySessions() {
             setRefreshTrigger((prev) => prev + 1);
           }}
           playerId={playerId!}
+          sessionNumber={sessions.find(s => s.id === selectedManualSession?.id)?.number}
         />
 
         <SessionRatingDialog
@@ -1682,6 +1756,7 @@ function MySessions() {
           }
           onDelete={handleRatingDelete}
           initialRating={selectedSessionForRating?.rating}
+          sessionNumber={selectedSessionForRating?.number}
         />
       </Paper>
     </Container>

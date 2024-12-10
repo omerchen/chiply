@@ -21,6 +21,7 @@ interface SessionRatingDialogProps {
   onSave: (rating: Omit<SessionRating, 'createdAt' | 'updatedAt'>) => void;
   onDelete?: () => void;
   initialRating?: SessionRating;
+  sessionNumber?: number;
 }
 
 export default function SessionRatingDialog({
@@ -29,6 +30,7 @@ export default function SessionRatingDialog({
   onSave,
   onDelete,
   initialRating,
+  sessionNumber,
 }: SessionRatingDialogProps) {
   const [rate, setRate] = useState<RatingValue | null>(null);
   const [comment, setComment] = useState('');
@@ -54,7 +56,9 @@ export default function SessionRatingDialog({
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        {initialRating ? 'Edit Session Rating' : 'Rate Session'}
+        {initialRating 
+          ? `Edit Session ${sessionNumber} Rating` 
+          : `Rate Session ${sessionNumber}`}
         {initialRating && onDelete && (
           <IconButton onClick={onDelete} color="error" size="small">
             <DeleteIcon />
