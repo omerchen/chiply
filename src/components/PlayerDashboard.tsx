@@ -24,6 +24,7 @@ import {
   Switch,
   FormControlLabel,
   Fab,
+  ListSubheader,
 } from "@mui/material";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
@@ -91,6 +92,12 @@ interface ExtendedPlayerSessionData extends PlayerSessionData {
   sessionId: string;
 }
 
+interface FilterLocation {
+  id: string;
+  name: string;
+  type: 'club' | 'location';
+}
+
 export default function PlayerDashboard({
   playerId,
   clubIds,
@@ -122,6 +129,8 @@ export default function PlayerDashboard({
     useState<boolean>(showManualSessionsToggle);
   const [manualSessionsData, setManualSessionsData] = useState<any>(null);
   const dashboardRef = useRef<HTMLDivElement>(null);
+  const [filterLocations, setFilterLocations] = useState<FilterLocation[]>([]);
+  const [selectedLocationId, setSelectedLocationId] = useState<string>("");
 
   // Fetch initial data
   useEffect(() => {
@@ -143,10 +152,24 @@ export default function PlayerDashboard({
             .map((id) => ({
               id,
               name: clubsData[id]?.name || "Unknown Club",
+              type: 'club' as const,
             }))
             .filter((club) => club.name !== "Unknown Club");
 
-          setClubs(playerClubs);
+          // Get unique locations from manual sessions
+          const manualLocations = manualSessionsData
+            ? Object.values(manualSessionsData)
+                .filter((session: any) => session.location)
+                .map((session: any) => session.location)
+                .filter((location, index, self) => self.indexOf(location) === index)
+                .map((location) => ({
+                  id: `location-${location}`,
+                  name: location,
+                  type: 'location' as const,
+                }))
+            : [];
+
+          setFilterLocations([...playerClubs, ...manualLocations]);
         }
 
         // Fetch all sessions
@@ -293,83 +316,93 @@ export default function PlayerDashboard({
             clubId: session.clubId,
           };
         })
-        .filter(
-          (
-            sessionData
-          ): sessionData is PlayerSessionData & {
-            sessionId: string;
-            clubId: string;
-          } => {
-            if (!sessionData) return false;
+        .filter((sessionData): sessionData is PlayerSessionData & {
+          sessionId: string;
+          clubId: string;
+        } => {
+          if (!sessionData) return false;
 
-            // Get the full session data
-            const session = allSessions.find(
-              (s) => s.id === sessionData.sessionId
+          // Get the full session data
+          const session = allSessions.find((s) => s.id === sessionData.sessionId);
+          if (!session) return false;
+
+          // Manual sessions filter
+          const isManualSession = session.details.type === "manual";
+          if (!includeManualSessions && isManualSession) {
+            return false;
+          }
+
+          // Location filter (clubs and manual locations)
+          if (selectedLocationId) {
+            const selectedLocation = filterLocations.find(
+              (loc) => loc.id === selectedLocationId
             );
-            if (!session) return false;
-
-            // Manual sessions filter
-            const isManualSession = session.details.type === "manual";
-            if (!includeManualSessions && isManualSession) {
-              return false;
-            }
-
-            // Club filter - only apply to non-manual sessions
-            if (
-              selectedClubId &&
-              !isManualSession &&
-              session.clubId !== selectedClubId
-            ) {
-              return false;
-            }
-
-            // Stakes filter
-            if (selectedStakes) {
-              const stakesStr = formatStakes(session.details.stakes);
-              if (stakesStr !== selectedStakes) {
-                return false;
-              }
-            }
-
-            // Date range filter
-            const sessionDate = new Date(session.details.startTime);
-
-            if (dateRangeOption !== "all") {
-              let startDate: Date | null = null;
-              let endDate: Date | null = customDateRange.end;
-
-              if (dateRangeOption === "custom") {
-                startDate = customDateRange.start;
-                endDate = customDateRange.end;
-              } else {
-                endDate = new Date();
-                switch (dateRangeOption) {
-                  case "7days":
-                    startDate = subDays(endDate, 7);
-                    break;
-                  case "30days":
-                    startDate = subDays(endDate, 30);
-                    break;
-                  case "90days":
-                    startDate = subDays(endDate, 90);
-                    break;
+            if (selectedLocation) {
+              if (selectedLocation.type === 'club') {
+                // When a club is selected, only show regular sessions from that club
+                if (isManualSession || session.clubId !== selectedLocationId) {
+                  return false;
                 }
-              }
-
-              if (startDate && endDate) {
-                const isInRange = isWithinInterval(sessionDate, {
-                  start: startOfDay(startDate),
-                  end: endOfDay(endDate),
-                });
-                if (!isInRange) {
+              } else {
+                // When a location is selected, only show manual sessions from that location
+                const manualSession = manualSessionsData?.[session.id];
+                if (
+                  !isManualSession ||
+                  !manualSession ||
+                  manualSession.location !== selectedLocation.name
+                ) {
                   return false;
                 }
               }
             }
-
-            return true;
           }
-        );
+
+          // Stakes filter
+          if (selectedStakes) {
+            const stakesStr = formatStakes(session.details.stakes);
+            if (stakesStr !== selectedStakes) {
+              return false;
+            }
+          }
+
+          // Date range filter
+          const sessionDate = new Date(session.details.startTime);
+
+          if (dateRangeOption !== "all") {
+            let startDate: Date | null = null;
+            let endDate: Date | null = customDateRange.end;
+
+            if (dateRangeOption === "custom") {
+              startDate = customDateRange.start;
+              endDate = customDateRange.end;
+            } else {
+              endDate = new Date();
+              switch (dateRangeOption) {
+                case "7days":
+                  startDate = subDays(endDate, 7);
+                  break;
+                case "30days":
+                  startDate = subDays(endDate, 30);
+                  break;
+                case "90days":
+                  startDate = subDays(endDate, 90);
+                  break;
+              }
+            }
+
+            if (startDate && endDate) {
+              const isInRange = isWithinInterval(sessionDate, {
+                start: startOfDay(startDate),
+                end: endOfDay(endDate),
+              });
+              if (!isInRange) {
+                return false;
+              }
+            }
+          }
+
+          return true;
+        });
 
       setFilteredPlayerSessions(filteredSessions);
     };
@@ -377,13 +410,14 @@ export default function PlayerDashboard({
     filterSessions();
   }, [
     allSessions,
-    selectedClubId,
+    selectedLocationId,
     selectedStakes,
     dateRangeOption,
     customDateRange,
     playerId,
     includeManualSessions,
     manualSessionsData,
+    filterLocations,
   ]);
 
   const formatStakes = (stakes: Stakes): string => {
@@ -802,23 +836,46 @@ export default function PlayerDashboard({
           >
             <Box sx={{ minWidth: 200, flex: 1 }}>
               <FormControl fullWidth>
-                <InputLabel id="club-select-label">Filter by Club</InputLabel>
+                <InputLabel id="location-select-label">
+                  Filter by Club/Location
+                </InputLabel>
                 <Select
-                  labelId="club-select-label"
-                  id="club-select"
-                  value={selectedClubId}
-                  label="Filter by Club"
-                  onChange={(e) => setSelectedClubId(e.target.value)}
+                  labelId="location-select-label"
+                  id="location-select"
+                  value={selectedLocationId}
+                  label="Filter by Club/Location"
+                  onChange={(e) => setSelectedLocationId(e.target.value)}
                   disabled={isClubFilterReadOnly}
                 >
                   <MenuItem value="">
-                    <em>All Clubs</em>
+                    <em>All Locations</em>
                   </MenuItem>
-                  {clubs.map((club) => (
-                    <MenuItem key={club.id} value={club.id}>
-                      {club.name}
-                    </MenuItem>
-                  ))}
+                  {filterLocations.length > 0 && (
+                    [
+                      // Club group
+                      filterLocations.some(loc => loc.type === 'club') && (
+                        <ListSubheader key="clubs-header">Clubs</ListSubheader>
+                      ),
+                      ...filterLocations
+                        .filter(loc => loc.type === 'club')
+                        .map(club => (
+                          <MenuItem key={club.id} value={club.id}>
+                            {club.name}
+                          </MenuItem>
+                        )),
+                      // Location group
+                      filterLocations.some(loc => loc.type === 'location') && (
+                        <ListSubheader key="locations-header">Manual Session Locations</ListSubheader>
+                      ),
+                      ...filterLocations
+                        .filter(loc => loc.type === 'location')
+                        .map(location => (
+                          <MenuItem key={location.id} value={location.id}>
+                            {location.name}
+                          </MenuItem>
+                        ))
+                    ]
+                  )}
                 </Select>
               </FormControl>
             </Box>
