@@ -82,7 +82,7 @@ export default function SessionRatingDialog({
                   <Stack alignItems="center" spacing={1}>
                     <Typography variant="h6">{emoji}</Typography>
                     <Typography variant="caption">
-                      {RATING_LABELS[value as RatingValue]}
+                      {RATING_LABELS[Number(value) as RatingValue]}
                     </Typography>
                   </Stack>
                 </ToggleButton>

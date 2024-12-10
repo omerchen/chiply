@@ -71,6 +71,11 @@ interface Player {
   firstName: string;
   lastName: string;
   email: string;
+  ratings?: {
+    [sessionId: string]: {
+      rate: number;
+    };
+  };
 }
 
 type DateRangeOption = "all" | "7days" | "30days" | "90days" | "custom";
@@ -101,7 +106,7 @@ interface ExtendedPlayerSessionData extends PlayerSessionData {
 interface FilterLocation {
   id: string;
   name: string;
-  type: 'club' | 'location';
+  type: "club" | "location";
 }
 
 export default function PlayerDashboard({
@@ -166,7 +171,7 @@ export default function PlayerDashboard({
             .map((id) => ({
               id,
               name: clubsData[id]?.name || "Unknown Club",
-              type: 'club' as const,
+              type: "club" as const,
             }))
             .filter((club) => club.name !== "Unknown Club");
 
@@ -175,11 +180,13 @@ export default function PlayerDashboard({
             ? Object.values(manualSessionsData)
                 .filter((session: any) => session.location)
                 .map((session: any) => session.location)
-                .filter((location, index, self) => self.indexOf(location) === index)
+                .filter(
+                  (location, index, self) => self.indexOf(location) === index
+                )
                 .map((location) => ({
                   id: `location-${location}`,
                   name: location,
-                  type: 'location' as const,
+                  type: "location" as const,
                 }))
             : [];
 
@@ -328,98 +335,107 @@ export default function PlayerDashboard({
             clubId: session.clubId,
           };
         })
-        .filter((sessionData): sessionData is PlayerSessionData & {
-          sessionId: string;
-          clubId: string;
-        } => {
-          if (!sessionData) return false;
+        .filter(
+          (
+            sessionData
+          ): sessionData is PlayerSessionData & {
+            sessionId: string;
+            clubId: string;
+          } => {
+            if (!sessionData) return false;
 
-          // Get the full session data
-          const session = allSessions.find((s) => s.id === sessionData.sessionId);
-          if (!session) return false;
-
-          // Manual sessions filter
-          const isManualSession = session.details.type === "manual";
-          if (!includeManualSessions && isManualSession) {
-            return false;
-          }
-
-          // If defaultClubId is provided and isClubFilterReadOnly is true,
-          // only show sessions from that club
-          if (defaultClubId && isClubFilterReadOnly) {
-            if (session.clubId !== defaultClubId) {
-              return false;
-            }
-          }
-          // Otherwise use the selected club/location filter
-          else if (selectedLocationId) {
-            const selectedLocation = filterLocations.find(
-              (loc) => loc.id === selectedLocationId
+            // Get the full session data
+            const session = allSessions.find(
+              (s) => s.id === sessionData.sessionId
             );
-            if (selectedLocation) {
-              if (selectedLocation.type === 'club') {
-                if (isManualSession || session.clubId !== selectedLocationId) {
-                  return false;
-                }
-              } else {
-                const manualSession = manualSessionsData?.[session.id];
-                if (
-                  !isManualSession ||
-                  !manualSession ||
-                  manualSession.location !== selectedLocation.name
-                ) {
-                  return false;
-                }
-              }
-            }
-          }
+            if (!session) return false;
 
-          // Stakes filter
-          if (selectedStakes) {
-            const stakesStr = formatStakes(session.details.stakes);
-            if (stakesStr !== selectedStakes) {
+            // Manual sessions filter
+            const isManualSession = session.details.type === "manual";
+            if (!includeManualSessions && isManualSession) {
               return false;
             }
-          }
 
-          // Date range filter
-          const sessionDate = new Date(session.details.startTime);
-
-          if (dateRangeOption !== "all") {
-            let startDate: Date | null = null;
-            let endDate: Date | null = customDateRange.end;
-
-            if (dateRangeOption === "custom") {
-              startDate = customDateRange.start;
-              endDate = customDateRange.end;
-            } else {
-              endDate = new Date();
-              switch (dateRangeOption) {
-                case "7days":
-                  startDate = subDays(endDate, 7);
-                  break;
-                case "30days":
-                  startDate = subDays(endDate, 30);
-                  break;
-                case "90days":
-                  startDate = subDays(endDate, 90);
-                  break;
-              }
-            }
-
-            if (startDate && endDate) {
-              const isInRange = isWithinInterval(sessionDate, {
-                start: startOfDay(startDate),
-                end: endOfDay(endDate),
-              });
-              if (!isInRange) {
+            // If defaultClubId is provided and isClubFilterReadOnly is true,
+            // only show sessions from that club
+            if (defaultClubId && isClubFilterReadOnly) {
+              if (session.clubId !== defaultClubId) {
                 return false;
               }
             }
-          }
+            // Otherwise use the selected club/location filter
+            else if (selectedLocationId) {
+              const selectedLocation = filterLocations.find(
+                (loc) => loc.id === selectedLocationId
+              );
+              if (selectedLocation) {
+                if (selectedLocation.type === "club") {
+                  if (
+                    isManualSession ||
+                    session.clubId !== selectedLocationId
+                  ) {
+                    return false;
+                  }
+                } else {
+                  const manualSession = manualSessionsData?.[session.id];
+                  if (
+                    !isManualSession ||
+                    !manualSession ||
+                    manualSession.location !== selectedLocation.name
+                  ) {
+                    return false;
+                  }
+                }
+              }
+            }
 
-          return true;
-        });
+            // Stakes filter
+            if (selectedStakes) {
+              const stakesStr = formatStakes(session.details.stakes);
+              if (stakesStr !== selectedStakes) {
+                return false;
+              }
+            }
+
+            // Date range filter
+            const sessionDate = new Date(session.details.startTime);
+
+            if (dateRangeOption !== "all") {
+              let startDate: Date | null = null;
+              let endDate: Date | null = customDateRange.end;
+
+              if (dateRangeOption === "custom") {
+                startDate = customDateRange.start;
+                endDate = customDateRange.end;
+              } else {
+                endDate = new Date();
+                switch (dateRangeOption) {
+                  case "7days":
+                    startDate = subDays(endDate, 7);
+                    break;
+                  case "30days":
+                    startDate = subDays(endDate, 30);
+                    break;
+                  case "90days":
+                    startDate = subDays(endDate, 90);
+                    break;
+                }
+              }
+
+              if (startDate && endDate) {
+                const isInRange = isWithinInterval(sessionDate, {
+                  start: startOfDay(startDate),
+                  end: endOfDay(endDate),
+                });
+                if (!isInRange) {
+                  return false;
+                }
+              }
+            }
+
+            return true;
+          }
+        );
 
       setFilteredPlayerSessions(filteredSessions);
     };
@@ -658,7 +674,9 @@ export default function PlayerDashboard({
 
   // Update includeManualSessions when showManualSessionsToggle changes
   useEffect(() => {
-    setIncludeManualSessions(isManualSessionsEnabled && showManualSessionsToggle);
+    setIncludeManualSessions(
+      isManualSessionsEnabled && showManualSessionsToggle
+    );
   }, [isManualSessionsEnabled, showManualSessionsToggle]);
 
   const handleDownloadPDF = async () => {
@@ -669,16 +687,18 @@ export default function PlayerDashboard({
       const originalStyle = dashboardRef.current.style.width;
       const originalPosition = dashboardRef.current.style.position;
       const originalOverflow = dashboardRef.current.style.overflow;
-      
+
       // Find and store the title element's original style
-      const titleElement = dashboardRef.current.querySelector('[data-dashboard-title]');
-      let originalTitleStyle = '';
+      const titleElement = dashboardRef.current.querySelector(
+        "[data-dashboard-title]"
+      );
+      let originalTitleStyle = "";
       if (titleElement) {
         originalTitleStyle = (titleElement as HTMLElement).style.cssText;
         // Set solid color for PDF
-        (titleElement as HTMLElement).style.background = 'none';
-        (titleElement as HTMLElement).style.WebkitBackgroundClip = 'unset';
-        (titleElement as HTMLElement).style.WebkitTextFillColor = '#673ab7';
+        (titleElement as HTMLElement).style.background = "none";
+        (titleElement as HTMLElement).style.webkitBackgroundClip = "unset";
+        (titleElement as HTMLElement).style.webkitTextFillColor = "#673ab7";
       }
 
       // Set styles for capture
@@ -702,7 +722,7 @@ export default function PlayerDashboard({
       dashboardRef.current.style.left = "";
       dashboardRef.current.style.transform = "";
       dashboardRef.current.style.overflow = originalOverflow;
-      
+
       // Restore title's original style
       if (titleElement) {
         (titleElement as HTMLElement).style.cssText = originalTitleStyle;
@@ -718,8 +738,8 @@ export default function PlayerDashboard({
 
       // Calculate dimensions to fit the page with margins
       const margins = 10;
-      const maxWidth = pageWidth - (2 * margins);
-      const maxHeight = pageHeight - (2 * margins);
+      const maxWidth = pageWidth - 2 * margins;
+      const maxHeight = pageHeight - 2 * margins;
 
       // Calculate scaling to fit within margins while maintaining aspect ratio
       const imgAspectRatio = canvas.width / canvas.height;
@@ -743,8 +763,12 @@ export default function PlayerDashboard({
       pdf.addImage(imgData, "PNG", xOffset, yOffset, imgWidth, imgHeight);
 
       // Format current date for filename
-      const currentDate = new Date().toLocaleDateString('en-GB').replace(/\//g, '-');
-      pdf.save(`${player.firstName}-${player.lastName}-dashboard-${currentDate}.pdf`);
+      const currentDate = new Date()
+        .toLocaleDateString("en-GB")
+        .replace(/\//g, "-");
+      pdf.save(
+        `${player.firstName}-${player.lastName}-dashboard-${currentDate}.pdf`
+      );
     } catch (error) {
       console.error("Error generating PDF:", error);
     }
@@ -783,18 +807,18 @@ export default function PlayerDashboard({
   return (
     <Container maxWidth="lg" sx={{ mt: 3, mb: 3 }}>
       <Box ref={dashboardRef}>
-        <Paper 
-          elevation={3} 
-          sx={{ 
-            p: 3, 
-            borderRadius: 2, 
+        <Paper
+          elevation={3}
+          sx={{
+            p: 3,
+            borderRadius: 2,
             mb: 3,
-            background: 'linear-gradient(45deg, #673ab7 30%, #9c27b0 90%)',
-            color: 'white'
+            background: "linear-gradient(45deg, #673ab7 30%, #9c27b0 90%)",
+            color: "white",
           }}
         >
           <Stack spacing={1}>
-            <Typography variant="h6" sx={{ fontWeight: 'medium' }}>
+            <Typography variant="h6" sx={{ fontWeight: "medium" }}>
               Welcome back, {player?.firstName}
             </Typography>
             <Typography variant="body2" sx={{ opacity: 0.8 }}>
@@ -817,7 +841,8 @@ export default function PlayerDashboard({
                 data-dashboard-title
                 sx={{
                   fontWeight: "bold",
-                  background: "linear-gradient(45deg, #673ab7 30%, #9c27b0 90%)",
+                  background:
+                    "linear-gradient(45deg, #673ab7 30%, #9c27b0 90%)",
                   WebkitBackgroundClip: "text",
                   WebkitTextFillColor: "transparent",
                   fontSize: { xs: "1.5rem", sm: "2.125rem" },
@@ -842,7 +867,11 @@ export default function PlayerDashboard({
 
             <Box sx={{ width: { xs: "100%", sm: "auto" } }}>
               <Box>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{ mb: 1 }}
+                >
                   Dashboard Unit
                 </Typography>
                 <ToggleButtonGroup
@@ -893,32 +922,32 @@ export default function PlayerDashboard({
                   <MenuItem value="">
                     <em>All Locations</em>
                   </MenuItem>
-                  {filterLocations.length > 0 && (
-                    [
-                      // Club group
-                      filterLocations.some(loc => loc.type === 'club') && (
-                        <ListSubheader key="clubs-header">Clubs</ListSubheader>
-                      ),
-                      ...filterLocations
-                        .filter(loc => loc.type === 'club')
-                        .map(club => (
-                          <MenuItem key={club.id} value={club.id}>
-                            {club.name}
-                          </MenuItem>
-                        )),
-                      // Location group
-                      filterLocations.some(loc => loc.type === 'location') && (
-                        <ListSubheader key="locations-header">Manual Session Locations</ListSubheader>
-                      ),
-                      ...filterLocations
-                        .filter(loc => loc.type === 'location')
-                        .map(location => (
-                          <MenuItem key={location.id} value={location.id}>
-                            {location.name}
-                          </MenuItem>
-                        ))
-                    ]
-                  )}
+                  {filterLocations.length > 0 && [
+                    // Club group
+                    filterLocations.some((loc) => loc.type === "club") && (
+                      <ListSubheader key="clubs-header">Clubs</ListSubheader>
+                    ),
+                    ...filterLocations
+                      .filter((loc) => loc.type === "club")
+                      .map((club) => (
+                        <MenuItem key={club.id} value={club.id}>
+                          {club.name}
+                        </MenuItem>
+                      )),
+                    // Location group
+                    filterLocations.some((loc) => loc.type === "location") && (
+                      <ListSubheader key="locations-header">
+                        Manual Session Locations
+                      </ListSubheader>
+                    ),
+                    ...filterLocations
+                      .filter((loc) => loc.type === "location")
+                      .map((location) => (
+                        <MenuItem key={location.id} value={location.id}>
+                          {location.name}
+                        </MenuItem>
+                      )),
+                  ]}
                 </Select>
               </FormControl>
             </Box>
@@ -1006,7 +1035,9 @@ export default function PlayerDashboard({
                 control={
                   <Switch
                     checked={showRatingMetricsState}
-                    onChange={(e) => setShowRatingMetricsState(e.target.checked)}
+                    onChange={(e) =>
+                      setShowRatingMetricsState(e.target.checked)
+                    }
                     color="primary"
                     disabled={!isRatingMetricsEnabled}
                   />
@@ -1103,7 +1134,9 @@ export default function PlayerDashboard({
                     (sum, session) => sum + (session.approximateHands || 0),
                     0
                   );
-                  return `~${new Intl.NumberFormat("en-US").format(totalHands)}`;
+                  return `~${new Intl.NumberFormat("en-US").format(
+                    totalHands
+                  )}`;
                 })()}
                 tooltip="Approximate number of poker hands played during the selected time period (~ indicates an estimate)"
               />
@@ -1161,36 +1194,47 @@ export default function PlayerDashboard({
               <MetricCard
                 title="Playtime"
                 value={(() => {
-                  const totalMinutes = filteredPlayerSessions.reduce((sum, session) => {
-                    // For manual sessions, use the durationMinutes directly
-                    if (session.durationMinutes) {
-                      return sum + session.durationMinutes;
-                    }
-                    
-                    // For regular sessions, find the session in allSessions
-                    const fullSession = allSessions.find(s => s.id === session.sessionId);
-                    if (!fullSession) return sum;
+                  const totalMinutes = filteredPlayerSessions.reduce(
+                    (sum, session) => {
+                      // For manual sessions, use the durationMinutes directly
+                      if (session.durationMinutes) {
+                        return sum + session.durationMinutes;
+                      }
 
-                    // Get first buyin time
-                    const firstBuyinTime = Object.values(fullSession.data.buyins)
-                      .filter(buyin => buyin.playerId === playerId)
-                      .reduce((earliest, buyin) => 
-                        Math.min(earliest, buyin.time),
-                        Infinity
+                      // For regular sessions, find the session in allSessions
+                      const fullSession = allSessions.find(
+                        (s) => s.id === session.sessionId
                       );
+                      if (!fullSession) return sum;
 
-                    // Get last cashout time
-                    const lastCashoutTime = Object.values(fullSession.data.cashouts)
-                      .filter(cashout => cashout.playerId === playerId)
-                      .reduce((latest, cashout) => 
-                        Math.max(latest, cashout.time),
-                        0
+                      // Get first buyin time
+                      const firstBuyinTime = Object.values(
+                        fullSession.data.buyins
+                      )
+                        .filter((buyin) => buyin.playerId === playerId)
+                        .reduce(
+                          (earliest, buyin) => Math.min(earliest, buyin.time),
+                          Infinity
+                        );
+
+                      // Get last cashout time
+                      const lastCashoutTime = Object.values(
+                        fullSession.data.cashouts
+                      )
+                        .filter((cashout) => cashout.playerId === playerId)
+                        .reduce(
+                          (latest, cashout) => Math.max(latest, cashout.time),
+                          0
+                        );
+
+                      // Calculate duration in minutes
+                      const durationMinutes = Math.floor(
+                        (lastCashoutTime - firstBuyinTime) / (1000 * 60)
                       );
-
-                    // Calculate duration in minutes
-                    const durationMinutes = Math.floor((lastCashoutTime - firstBuyinTime) / (1000 * 60));
-                    return sum + (durationMinutes > 0 ? durationMinutes : 0);
-                  }, 0);
+                      return sum + (durationMinutes > 0 ? durationMinutes : 0);
+                    },
+                    0
+                  );
 
                   // Convert to hours and format
                   const hours = totalMinutes / 60;
@@ -1210,32 +1254,43 @@ export default function PlayerDashboard({
                         : sum + session.profitBB,
                     0
                   );
-                  
-                  const totalMinutes = filteredPlayerSessions.reduce((sum, session) => {
-                    if (session.durationMinutes) {
-                      return sum + session.durationMinutes;
-                    }
-                    
-                    const fullSession = allSessions.find(s => s.id === session.sessionId);
-                    if (!fullSession) return sum;
 
-                    const firstBuyinTime = Object.values(fullSession.data.buyins)
-                      .filter(buyin => buyin.playerId === playerId)
-                      .reduce((earliest, buyin) => 
-                        Math.min(earliest, buyin.time),
-                        Infinity
+                  const totalMinutes = filteredPlayerSessions.reduce(
+                    (sum, session) => {
+                      if (session.durationMinutes) {
+                        return sum + session.durationMinutes;
+                      }
+
+                      const fullSession = allSessions.find(
+                        (s) => s.id === session.sessionId
                       );
+                      if (!fullSession) return sum;
 
-                    const lastCashoutTime = Object.values(fullSession.data.cashouts)
-                      .filter(cashout => cashout.playerId === playerId)
-                      .reduce((latest, cashout) => 
-                        Math.max(latest, cashout.time),
-                        0
+                      const firstBuyinTime = Object.values(
+                        fullSession.data.buyins
+                      )
+                        .filter((buyin) => buyin.playerId === playerId)
+                        .reduce(
+                          (earliest, buyin) => Math.min(earliest, buyin.time),
+                          Infinity
+                        );
+
+                      const lastCashoutTime = Object.values(
+                        fullSession.data.cashouts
+                      )
+                        .filter((cashout) => cashout.playerId === playerId)
+                        .reduce(
+                          (latest, cashout) => Math.max(latest, cashout.time),
+                          0
+                        );
+
+                      const durationMinutes = Math.floor(
+                        (lastCashoutTime - firstBuyinTime) / (1000 * 60)
                       );
-
-                    const durationMinutes = Math.floor((lastCashoutTime - firstBuyinTime) / (1000 * 60));
-                    return sum + (durationMinutes > 0 ? durationMinutes : 0);
-                  }, 0);
+                      return sum + (durationMinutes > 0 ? durationMinutes : 0);
+                    },
+                    0
+                  );
 
                   const hours = totalMinutes / 60;
                   if (hours === 0) return "-";
@@ -1408,7 +1463,9 @@ export default function PlayerDashboard({
             <TimelineCard
               title={`Total P&L (${dashboardUnit === "cash" ? "₪" : "BB"})`}
               data={getTimelineData}
-              yAxisLabel={dashboardUnit === "cash" ? "Profit (₪)" : "Profit (BB)"}
+              yAxisLabel={
+                dashboardUnit === "cash" ? "Profit (₪)" : "Profit (BB)"
+              }
               xAxisLabel="Date"
               tooltip="Cumulative profit/loss over time, showing your bankroll progression"
               formatTooltip={(value) =>
@@ -1445,12 +1502,12 @@ export default function PlayerDashboard({
         aria-label="download"
         onClick={handleDownloadPDF}
         sx={{
-          position: 'fixed',
+          position: "fixed",
           bottom: 16,
           right: 16,
-          bgcolor: '#673ab7',
-          '&:hover': {
-            bgcolor: '#563098',
+          bgcolor: "#673ab7",
+          "&:hover": {
+            bgcolor: "#563098",
           },
         }}
       >

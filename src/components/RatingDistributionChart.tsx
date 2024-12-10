@@ -69,9 +69,9 @@ export default function RatingDistributionChart({
 
   // Don't show the chart if there are no ratings
   const data = getRatingData();
-  const hasRatings = data.some(item => item.count > 0);
+  const hasRatings = data.some((item) => item.count > 0);
   const avgRating = getAverageRating();
-  
+
   if (!hasRatings) {
     return (
       <Paper elevation={3} sx={{ p: 3, mb: 4 }}>
@@ -89,23 +89,36 @@ export default function RatingDistributionChart({
   const isMobile = window.innerWidth <= 600;
 
   return (
-    <Paper elevation={3} sx={{ p: { xs: 2, sm: 3 }, mb: 4, height: { xs: 370, sm: 400 } }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-        <Typography variant="h6">
-          Session Ratings Distribution
-        </Typography>
-        <Box sx={{ 
-          display: 'flex', 
-          alignItems: 'center', 
-          bgcolor: 'rgba(103, 58, 183, 0.1)', 
-          px: 2, 
-          py: 1, 
-          borderRadius: 2 
-        }}>
+    <Paper
+      elevation={3}
+      sx={{ p: { xs: 2, sm: 3 }, mb: 4, height: { xs: 370, sm: 400 } }}
+    >
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          mb: 2,
+        }}
+      >
+        <Typography variant="h6">Session Ratings Distribution</Typography>
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            bgcolor: "rgba(103, 58, 183, 0.1)",
+            px: 2,
+            py: 1,
+            borderRadius: 2,
+          }}
+        >
           <Typography variant="body2" color="text.secondary" sx={{ mr: 1 }}>
             Avg. Rate:
           </Typography>
-          <Typography variant="h6" sx={{ color: '#673ab7', display: 'flex', alignItems: 'center' }}>
+          <Typography
+            variant="h6"
+            sx={{ color: "#673ab7", display: "flex", alignItems: "center" }}
+          >
             {avgRating.toFixed(1)} {getRatingEmoji(Math.round(avgRating))}
           </Typography>
         </Box>
@@ -148,9 +161,11 @@ export default function RatingDistributionChart({
           labelTextColor={"#ffffff"}
           role="application"
           ariaLabel="Session ratings distribution"
-          barAriaLabel={e => `Rating ${e.indexValue}: ${e.value} sessions`}
+          barAriaLabel={(e) => `Rating ${e.indexValue}: ${e.value} sessions`}
           theme={{
-            fontFamily: "'Nunito', sans-serif",
+            text: {
+              fontFamily: "'Nunito', sans-serif",
+            },
             axis: {
               ticks: {
                 text: {
@@ -175,4 +190,4 @@ export default function RatingDistributionChart({
       </Box>
     </Paper>
   );
-} 
+}
