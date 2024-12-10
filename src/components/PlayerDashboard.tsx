@@ -49,6 +49,8 @@ import PieChartCard from "./PieChartCard";
 import TimelineCard from "./TimelineCard";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
+import { ResponsiveBar } from "@nivo/bar";
+import RatingDistributionChart from "./RatingDistributionChart";
 
 type DashboardUnit = "cash" | "bb";
 
@@ -58,6 +60,10 @@ interface PlayerDashboardProps {
   defaultClubId?: string;
   isClubFilterReadOnly?: boolean;
   showManualSessionsToggle?: boolean;
+  includeManualSessions?: boolean;
+  isManualSessionsEnabled?: boolean;
+  showRatingMetrics?: boolean;
+  isRatingMetricsEnabled?: boolean;
 }
 
 interface Player {
@@ -104,6 +110,10 @@ export default function PlayerDashboard({
   defaultClubId,
   isClubFilterReadOnly = false,
   showManualSessionsToggle = true,
+  includeManualSessions: initialIncludeManualSessions = true,
+  isManualSessionsEnabled = true,
+  showRatingMetrics = true,
+  isRatingMetricsEnabled = true,
 }: PlayerDashboardProps) {
   const [loading, setLoading] = useState(true);
   const [player, setPlayer] = useState<Player | null>(null);
@@ -120,17 +130,21 @@ export default function PlayerDashboard({
   const [isCustomDatePickerOpen, setIsCustomDatePickerOpen] = useState(false);
   const [allSessions, setAllSessions] = useState<SessionDetails[]>([]);
   const [filteredPlayerSessions, setFilteredPlayerSessions] = useState<
-    PlayerSessionData[]
+    ExtendedPlayerSessionData[]
   >([]);
   const [dashboardUnit, setDashboardUnit] = useState<DashboardUnit>("cash");
   const [selectedStakes, setSelectedStakes] = useState<string>("");
   const [availableStakes, setAvailableStakes] = useState<Stakes[]>([]);
-  const [includeManualSessions, setIncludeManualSessions] =
-    useState<boolean>(showManualSessionsToggle);
+  const [includeManualSessions, setIncludeManualSessions] = useState<boolean>(
+    isManualSessionsEnabled && initialIncludeManualSessions
+  );
   const [manualSessionsData, setManualSessionsData] = useState<any>(null);
   const dashboardRef = useRef<HTMLDivElement>(null);
   const [filterLocations, setFilterLocations] = useState<FilterLocation[]>([]);
   const [selectedLocationId, setSelectedLocationId] = useState<string>("");
+  const [showRatingMetricsState, setShowRatingMetricsState] = useState<boolean>(
+    isRatingMetricsEnabled && showRatingMetrics
+  );
 
   // Fetch initial data
   useEffect(() => {
@@ -297,12 +311,10 @@ export default function PlayerDashboard({
               : (() => {
                   const data = processPlayerSessionData(session, playerId);
                   if (!data) return null;
-                  // Override profit calculations to use stackValue
-                  const profit = data.stackValue - data.buyinsTotal;
                   return {
                     ...data,
-                    profit,
-                    profitBB: profit / data.bb,
+                    profit: data.stackValue - data.buyinsTotal,
+                    profitBB: (data.stackValue - data.buyinsTotal) / data.bb,
                   };
                 })();
 
@@ -332,19 +344,24 @@ export default function PlayerDashboard({
             return false;
           }
 
-          // Location filter (clubs and manual locations)
-          if (selectedLocationId) {
+          // If defaultClubId is provided and isClubFilterReadOnly is true,
+          // only show sessions from that club
+          if (defaultClubId && isClubFilterReadOnly) {
+            if (session.clubId !== defaultClubId) {
+              return false;
+            }
+          }
+          // Otherwise use the selected club/location filter
+          else if (selectedLocationId) {
             const selectedLocation = filterLocations.find(
               (loc) => loc.id === selectedLocationId
             );
             if (selectedLocation) {
               if (selectedLocation.type === 'club') {
-                // When a club is selected, only show regular sessions from that club
                 if (isManualSession || session.clubId !== selectedLocationId) {
                   return false;
                 }
               } else {
-                // When a location is selected, only show manual sessions from that location
                 const manualSession = manualSessionsData?.[session.id];
                 if (
                   !isManualSession ||
@@ -418,6 +435,8 @@ export default function PlayerDashboard({
     includeManualSessions,
     manualSessionsData,
     filterLocations,
+    defaultClubId,
+    isClubFilterReadOnly,
   ]);
 
   const formatStakes = (stakes: Stakes): string => {
@@ -639,8 +658,8 @@ export default function PlayerDashboard({
 
   // Update includeManualSessions when showManualSessionsToggle changes
   useEffect(() => {
-    setIncludeManualSessions(showManualSessionsToggle);
-  }, [showManualSessionsToggle]);
+    setIncludeManualSessions(isManualSessionsEnabled && showManualSessionsToggle);
+  }, [isManualSessionsEnabled, showManualSessionsToggle]);
 
   const handleDownloadPDF = async () => {
     if (!dashboardRef.current || !player) return;
@@ -714,6 +733,13 @@ export default function PlayerDashboard({
       console.error("Error generating PDF:", error);
     }
   };
+
+  // Add this useEffect after the other useEffects
+  useEffect(() => {
+    if (defaultClubId && isClubFilterReadOnly) {
+      setSelectedLocationId(defaultClubId);
+    }
+  }, [defaultClubId, isClubFilterReadOnly]);
 
   if (loading) {
     return (
@@ -926,31 +952,55 @@ export default function PlayerDashboard({
               </FormControl>
             </Box>
 
-            {showManualSessionsToggle && (
-              <Box
-                sx={{
-                  minWidth: 200,
-                  flex: 1,
-                  display: "flex",
-                  alignItems: "center",
-                }}
-              >
-                <FormControlLabel
-                  control={
-                    <Switch
-                      checked={includeManualSessions}
-                      onChange={(e) => setIncludeManualSessions(e.target.checked)}
-                      color="primary"
-                    />
-                  }
-                  label={
-                    <Typography variant="body2" color="text.secondary">
-                      Include Manual Sessions
-                    </Typography>
-                  }
-                />
-              </Box>
-            )}
+            <Box
+              sx={{
+                minWidth: 200,
+                flex: 1,
+                display: "flex",
+                alignItems: "center",
+              }}
+            >
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={includeManualSessions}
+                    onChange={(e) => setIncludeManualSessions(e.target.checked)}
+                    color="primary"
+                    disabled={!isManualSessionsEnabled}
+                  />
+                }
+                label={
+                  <Typography variant="body2" color="text.secondary">
+                    Include Manual Sessions
+                  </Typography>
+                }
+              />
+            </Box>
+
+            <Box
+              sx={{
+                minWidth: 200,
+                flex: 1,
+                display: "flex",
+                alignItems: "center",
+              }}
+            >
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={showRatingMetricsState}
+                    onChange={(e) => setShowRatingMetricsState(e.target.checked)}
+                    color="primary"
+                    disabled={!isRatingMetricsEnabled}
+                  />
+                }
+                label={
+                  <Typography variant="body2" color="text.secondary">
+                    Show Rating Metrics
+                  </Typography>
+                }
+              />
+            </Box>
           </Stack>
 
           <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 4 }}>
@@ -970,6 +1020,16 @@ export default function PlayerDashboard({
             )}
           </Stack>
 
+          {showRatingMetricsState && (
+            <Box sx={{ mb: 4 }}>
+              <RatingDistributionChart
+                sessions={filteredPlayerSessions as { sessionId: string }[]}
+                allSessions={allSessions}
+                player={player}
+              />
+            </Box>
+          )}
+
           {/* Metrics Grid */}
           <Grid container spacing={3} sx={{ mb: 4 }}>
             <Grid item xs={12} sm={6}>
@@ -977,19 +1037,6 @@ export default function PlayerDashboard({
                 title="Total Sessions"
                 value={filteredPlayerSessions.length}
                 tooltip="Total number of poker sessions played during the selected time period"
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <MetricCard
-                title="Total Hands"
-                value={(() => {
-                  const totalHands = filteredPlayerSessions.reduce(
-                    (sum, session) => sum + (session.approximateHands || 0),
-                    0
-                  );
-                  return `~${new Intl.NumberFormat("en-US").format(totalHands)}`;
-                })()}
-                tooltip="Approximate number of poker hands played during the selected time period (~ indicates an estimate)"
               />
             </Grid>
             <Grid item xs={12} sm={6}>
@@ -1029,6 +1076,19 @@ export default function PlayerDashboard({
                 tooltip={`Total profit/loss in ${
                   dashboardUnit === "cash" ? "Israeli Shekels" : "Big Blinds"
                 } across all sessions in the selected time period`}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <MetricCard
+                title="Total Hands"
+                value={(() => {
+                  const totalHands = filteredPlayerSessions.reduce(
+                    (sum, session) => sum + (session.approximateHands || 0),
+                    0
+                  );
+                  return `~${new Intl.NumberFormat("en-US").format(totalHands)}`;
+                })()}
+                tooltip="Approximate number of poker hands played during the selected time period (~ indicates an estimate)"
               />
             </Grid>
             <Grid item xs={12} sm={6}>
@@ -1077,9 +1137,121 @@ export default function PlayerDashboard({
                     ? "error.main"
                     : "text.primary";
                 })()}
-                tooltip={`Average profit/loss per 100 hands played in ${
-                  dashboardUnit === "cash" ? "Israeli Shekels" : "Big Blinds"
-                } - a key metric for measuring win rate`}
+                tooltip="Average profit/loss per 100 hands played - a key metric for measuring win rate"
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <MetricCard
+                title="Playtime"
+                value={(() => {
+                  const totalMinutes = filteredPlayerSessions.reduce((sum, session) => {
+                    // For manual sessions, use the durationMinutes directly
+                    if (session.durationMinutes) {
+                      return sum + session.durationMinutes;
+                    }
+                    
+                    // For regular sessions, find the session in allSessions
+                    const fullSession = allSessions.find(s => s.id === session.sessionId);
+                    if (!fullSession) return sum;
+
+                    // Get first buyin time
+                    const firstBuyinTime = Object.values(fullSession.data.buyins)
+                      .filter(buyin => buyin.playerId === playerId)
+                      .reduce((earliest, buyin) => 
+                        Math.min(earliest, buyin.time),
+                        Infinity
+                      );
+
+                    // Get last cashout time
+                    const lastCashoutTime = Object.values(fullSession.data.cashouts)
+                      .filter(cashout => cashout.playerId === playerId)
+                      .reduce((latest, cashout) => 
+                        Math.max(latest, cashout.time),
+                        0
+                      );
+
+                    // Calculate duration in minutes
+                    const durationMinutes = Math.floor((lastCashoutTime - firstBuyinTime) / (1000 * 60));
+                    return sum + (durationMinutes > 0 ? durationMinutes : 0);
+                  }, 0);
+
+                  // Convert to hours and format
+                  const hours = totalMinutes / 60;
+                  return `${hours.toFixed(1)}h`;
+                })()}
+                tooltip="Total time spent playing poker during the selected time period"
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <MetricCard
+                title="Profit / Hour"
+                value={(() => {
+                  const totalProfit = filteredPlayerSessions.reduce(
+                    (sum, session) =>
+                      dashboardUnit === "cash"
+                        ? sum + session.profit
+                        : sum + session.profitBB,
+                    0
+                  );
+                  
+                  const totalMinutes = filteredPlayerSessions.reduce((sum, session) => {
+                    if (session.durationMinutes) {
+                      return sum + session.durationMinutes;
+                    }
+                    
+                    const fullSession = allSessions.find(s => s.id === session.sessionId);
+                    if (!fullSession) return sum;
+
+                    const firstBuyinTime = Object.values(fullSession.data.buyins)
+                      .filter(buyin => buyin.playerId === playerId)
+                      .reduce((earliest, buyin) => 
+                        Math.min(earliest, buyin.time),
+                        Infinity
+                      );
+
+                    const lastCashoutTime = Object.values(fullSession.data.cashouts)
+                      .filter(cashout => cashout.playerId === playerId)
+                      .reduce((latest, cashout) => 
+                        Math.max(latest, cashout.time),
+                        0
+                      );
+
+                    const durationMinutes = Math.floor((lastCashoutTime - firstBuyinTime) / (1000 * 60));
+                    return sum + (durationMinutes > 0 ? durationMinutes : 0);
+                  }, 0);
+
+                  const hours = totalMinutes / 60;
+                  if (hours === 0) return "-";
+
+                  const profitPerHour = totalProfit / hours;
+                  const formattedNumber = new Intl.NumberFormat("en-US", {
+                    minimumFractionDigits: 1,
+                    maximumFractionDigits: 1,
+                  }).format(
+                    dashboardUnit === "cash"
+                      ? profitPerHour
+                      : parseFloat(profitPerHour.toFixed(1))
+                  );
+
+                  return dashboardUnit === "cash"
+                    ? `₪${formattedNumber}`
+                    : `${formattedNumber} BB`;
+                })()}
+                valueColor={(() => {
+                  const totalProfit = filteredPlayerSessions.reduce(
+                    (sum, session) =>
+                      dashboardUnit === "cash"
+                        ? sum + session.profit
+                        : sum + session.profitBB,
+                    0
+                  );
+                  return totalProfit > 0
+                    ? "success.main"
+                    : totalProfit < 0
+                    ? "error.main"
+                    : "text.primary";
+                })()}
+                tooltip="Average profit/loss per hour played - shows your hourly rate"
               />
             </Grid>
             <Grid item xs={12} sm={6}>
@@ -1247,62 +1419,6 @@ export default function PlayerDashboard({
               />
             </Grid>
           </Grid>
-
-          <Dialog
-            open={isCustomDatePickerOpen}
-            onClose={() => setIsCustomDatePickerOpen(false)}
-            maxWidth="sm"
-            fullWidth
-          >
-            <DialogTitle>Select Date Range</DialogTitle>
-            <DialogContent>
-              <LocalizationProvider dateAdapter={AdapterDateFns}>
-                <Stack spacing={3} sx={{ mt: 2 }}>
-                  <DatePicker
-                    label="Start Date"
-                    value={customDateRange.start}
-                    onChange={(date) =>
-                      setCustomDateRange((prev) => ({ ...prev, start: date }))
-                    }
-                    maxDate={customDateRange.end || undefined}
-                    format="dd/MM/yyyy"
-                    slotProps={{
-                      textField: {
-                        fullWidth: true,
-                      },
-                    }}
-                  />
-                  <DatePicker
-                    label="End Date"
-                    value={customDateRange.end}
-                    onChange={(date) =>
-                      setCustomDateRange((prev) => ({ ...prev, end: date }))
-                    }
-                    minDate={customDateRange.start || undefined}
-                    maxDate={new Date()}
-                    format="dd/MM/yyyy"
-                    slotProps={{
-                      textField: {
-                        fullWidth: true,
-                      },
-                    }}
-                  />
-                </Stack>
-              </LocalizationProvider>
-            </DialogContent>
-            <DialogActions>
-              <Button onClick={() => setIsCustomDatePickerOpen(false)}>
-                Cancel
-              </Button>
-              <Button
-                onClick={handleCustomDateRangeConfirm}
-                disabled={!customDateRange.start || !customDateRange.end}
-                sx={{ color: "#673ab7" }}
-              >
-                Apply
-              </Button>
-            </DialogActions>
-          </Dialog>
         </Paper>
       </Box>
 

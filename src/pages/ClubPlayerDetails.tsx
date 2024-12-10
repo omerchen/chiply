@@ -94,6 +94,10 @@ function ClubPlayerDetails() {
         defaultClubId={clubId!}
         isClubFilterReadOnly={true}
         showManualSessionsToggle={false}
+        includeManualSessions={false}
+        isManualSessionsEnabled={false}
+        showRatingMetrics={true}
+        isRatingMetricsEnabled={false}
       />
     </Container>
   );
