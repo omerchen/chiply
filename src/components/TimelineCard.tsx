@@ -50,7 +50,9 @@ export default function TimelineCard({
   };
 
   const commonLineProps = {
-    margin: { top: 20, right: 20, bottom: 50, left: 70 },
+    margin: isMobile
+      ? { top: 20, right: 20, bottom: 60, left: 70 }
+      : { top: 20, right: 20, bottom: 50, left: 70 },
     enablePoints: true,
     pointSize: 6,
     pointColor: { theme: "background" },
@@ -65,7 +67,8 @@ export default function TimelineCard({
     curve: "monotoneX" as const,
     theme: {
       fontSize: 12,
-      fontFamily: theme.typography.fontFamily,
+      fontFamily: "Nunito",
+      textColor: theme.palette.text.secondary,
       crosshair: {
         line: {
           stroke: theme.palette.text.secondary,
@@ -80,8 +83,27 @@ export default function TimelineCard({
         },
       },
       axis: {
-        ticks: {
+        domain: {
+          line: {
+            stroke: theme.palette.divider,
+            strokeWidth: 1,
+          },
+        },
+        legend: {
           text: {
+            fontSize: 12,
+            fontFamily: "Nunito",
+            fill: theme.palette.text.secondary,
+          },
+        },
+        ticks: {
+          line: {
+            stroke: theme.palette.divider,
+            strokeWidth: 1,
+          },
+          text: {
+            fontSize: 11,
+            fontFamily: "Nunito",
             fill: theme.palette.text.secondary,
           },
         },
@@ -91,6 +113,7 @@ export default function TimelineCard({
           background: "rgba(0, 0, 0, 0.8)",
           color: "white",
           fontSize: "12px",
+          fontFamily: "Nunito",
           borderRadius: "4px",
           boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
         },
@@ -118,16 +141,29 @@ export default function TimelineCard({
     },
     axisBottom: {
       tickSize: 5,
-      tickPadding: 5,
-      tickRotation: -45,
+      tickPadding: 8,
+      tickRotation: isMobile ? -45 : -30,
       legend: xAxisLabel,
-      legendOffset: 45,
+      legendOffset: isMobile ? 50 : 40,
       legendPosition: "middle" as const,
       format: (value: number) => {
-        // Format the date to be more readable
         const date = new Date(value);
-        return `${date.getMonth() + 1}/${date.getDate()}`;
+        return isMobile ? 
+          `${date.getMonth() + 1}/${date.getDate()}` :
+          date.toLocaleDateString("en-US", { month: 'short', day: 'numeric' });
       },
+      tickValues: (() => {
+        if (!data || !data[0] || !data[0].data || data[0].data.length === 0) return [];
+        const timeData = data[0].data;
+        
+        if (isMobile) {
+          const minTime = Math.min(...timeData.map(d => d.x));
+          const maxTime = Math.max(...timeData.map(d => d.x));
+          return [minTime, maxTime];
+        }
+        
+        return undefined; // Default tick behavior for desktop
+      })(),
     },
     tooltip: ({ point }: { point: Point }) => {
       const date = new Date(point.data.x as number);

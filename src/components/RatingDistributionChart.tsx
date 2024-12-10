@@ -85,8 +85,11 @@ export default function RatingDistributionChart({
     );
   }
 
+  // Add this useMediaQuery hook at the top of the component
+  const isMobile = window.innerWidth <= 600;
+
   return (
-    <Paper elevation={3} sx={{ p: 3, mb: 4, height: 400 }}>
+    <Paper elevation={3} sx={{ p: { xs: 2, sm: 3 }, mb: 4, height: { xs: 370, sm: 400 } }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Typography variant="h6">
           Session Ratings Distribution
@@ -107,12 +110,17 @@ export default function RatingDistributionChart({
           </Typography>
         </Box>
       </Box>
-      <Box sx={{ height: 300 }}>
+      <Box sx={{ height: { xs: 250, sm: 300 } }}>
         <ResponsiveBar
           data={data}
           keys={["count"]}
           indexBy="rating"
-          margin={{ top: 20, right: 20, bottom: 40, left: 40 }}
+          margin={{
+            top: 20,
+            right: 20,
+            bottom: 40,
+            left: isMobile ? 32 : 40,
+          }}
           padding={0.3}
           valueScale={{ type: "linear" }}
           colors={"#673ab7"}
@@ -131,7 +139,7 @@ export default function RatingDistributionChart({
             tickSize: 5,
             tickPadding: 5,
             tickRotation: 0,
-            legend: "Number of Sessions",
+            legend: isMobile ? undefined : "Number of Sessions",
             legendPosition: "middle",
             legendOffset: -32,
           }}
@@ -146,7 +154,7 @@ export default function RatingDistributionChart({
             axis: {
               ticks: {
                 text: {
-                  fontSize: 16,
+                  fontSize: isMobile ? 14 : 16,
                   fontFamily: "'Nunito', sans-serif",
                 },
               },
