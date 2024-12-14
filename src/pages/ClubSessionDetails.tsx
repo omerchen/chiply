@@ -65,14 +65,12 @@ interface SessionData {
       time: number;
     };
   };
-  transactions: {
-    [key: string]: {
-      from: string;
-      to: string;
-      amount: number;
-      status: "waiting" | "done";
-    };
-  };
+  // transactions: {
+  //   from: string;
+  //   to: string;
+  //   amount: number;
+  //   status: "waiting" | "done";
+  // }[];
 }
 
 interface SessionDetails {
@@ -570,72 +568,6 @@ function ClubSessionDetails() {
     }
   };
 
-  const calculateTransactions = async () => {
-    if (!session) return;
-
-    // Calculate optimal transactions
-    const transactions: { [key: string]: SessionData["transactions"][string] } =
-      {};
-
-    // TODO: Implement transaction calculation logic
-    // This will need to:
-    // 1. Calculate net amounts for each player
-    // 2. Generate optimal transactions to settle all debts
-    // 3. Create transaction objects with status "waiting"
-
-    try {
-      await updateData(`sessions/${sessionId}/data/transactions`, transactions);
-
-      // Update local state only after successful DB update
-      setSession((prev) => {
-        if (!prev) return prev;
-        return {
-          ...prev,
-          data: {
-            ...prev.data,
-            transactions,
-          },
-        };
-      });
-    } catch (error) {
-      console.error("Error calculating transactions:", error);
-    }
-  };
-
-  const updateTransactionStatus = async (
-    transactionId: string,
-    status: "waiting" | "done"
-  ) => {
-    if (!session) return;
-
-    try {
-      await updateData(
-        `sessions/${sessionId}/data/transactions/${transactionId}/status`,
-        status
-      );
-
-      // Update local state only after successful DB update
-      setSession((prev) => {
-        if (!prev) return prev;
-        return {
-          ...prev,
-          data: {
-            ...prev.data,
-            transactions: {
-              ...prev.data.transactions,
-              [transactionId]: {
-                ...prev.data.transactions[transactionId],
-                status,
-              },
-            },
-          },
-        };
-      });
-    } catch (error) {
-      console.error("Error updating transaction status:", error);
-    }
-  };
-
   const handleResetPlayerCashout = async (playerId: string) => {
     const player = players.find((p) => p.id === playerId);
     if (!player) return;
@@ -1017,11 +949,9 @@ function ClubSessionDetails() {
               }
               onEditBuyin={userRole === "admin" ? editBuyin : undefined}
               isSessionClosed={session.status === "close"}
-              cashedOutPlayerIds={
-                Object.values(session?.data?.cashouts || {}).map(
-                  (cashout) => cashout.playerId
-                )
-              }
+              cashedOutPlayerIds={Object.values(
+                session?.data?.cashouts || {}
+              ).map((cashout) => cashout.playerId)}
             />
           </Grid>
 

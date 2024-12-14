@@ -56,12 +56,4 @@ export interface SessionData {
       time: number;
     };
   };
-  transactions: {
-    [key: string]: {
-      from: string;
-      to: string;
-      amount: number;
-      status: 'waiting' | 'done';
-    };
-  };
-} 
+}

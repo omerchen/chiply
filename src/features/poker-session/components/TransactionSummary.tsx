@@ -9,67 +9,127 @@ interface TransactionListProps {
 
 function TransactionList({ players }: TransactionListProps) {
   const calculateTransactions = (players: Player[]): Transaction[] => {
-    const playersWithResults = players
-      .filter((player) => player.cashout !== null)
-      .map((player) => ({
-        id: player.id,
-        name: player.name,
-        balance:
-          player.cashout! -
-          player.buyins.reduce((sum: number, buyin: Buyin) => sum + buyin.amount, 0),
-      }));
-
     const transactions: Transaction[] = [];
+    let totalPayboxAmount = players.reduce((sum, player) => {
+      return (
+        sum +
+        player.buyins
+          .filter((buyin) => buyin.isPayBox)
+          .reduce((sum, buyin) => sum + buyin.amount, 0)
+      );
+    }, 0);
 
-    const winners = playersWithResults
-      .filter((player) => player.balance > 0)
-      .sort((a, b) => b.balance - a.balance);
-
-    const losers = playersWithResults
-      .filter((player) => player.balance < 0)
-      .sort((a, b) => a.balance - b.balance);
-
-    losers.forEach((loser) => {
-      let remainingDebt = Math.abs(loser.balance);
-
-      winners.forEach((winner) => {
-        if (remainingDebt > 0 && winner.balance > 0) {
-          const amount = Math.min(remainingDebt, winner.balance);
-          if (amount > 0) {
-            transactions.push({
-              from: loser.name,
-              to: winner.name,
-              amount: +amount.toFixed(2),
-            });
-            remainingDebt = +(remainingDebt - amount).toFixed(2);
-            winner.balance = +(winner.balance - amount).toFixed(2);
-          }
-        }
+    let playersProfitAndLoss: { name: string; amount: number }[] = [];
+    players.forEach((player) => {
+      // Each player will receive his cashout minus any non-paybox transaction he had
+      const playerCashout = player.cashout ?? 0;
+      const playerNonPayboxTransactions = player.buyins.filter(
+        (buyin) => !buyin.isPayBox
+      );
+      const playerNonPayboxTransactionsAmount =
+        playerNonPayboxTransactions.reduce(
+          (sum, buyin) => sum + buyin.amount,
+          0
+        );
+      const playerReceiving = playerCashout - playerNonPayboxTransactionsAmount;
+      playersProfitAndLoss.push({
+        name: player.name,
+        amount: playerReceiving,
       });
     });
 
-    return transactions;
-  };
+    let remainingPlusPlayers: { name: string; amount: number }[] = [
+      ...playersProfitAndLoss.filter((player) => player.amount > 0),
+    ];
 
-  const calculatePayBoxTransactions = (players: Player[]): Transaction[] => {
-    const transactions: Transaction[] = [];
-    
-    players
-      .filter((player) => player.cashout !== null)
-      .forEach((player) => {
-        const payBoxAmount = player.buyins
-          .filter((buyin: Buyin) => buyin.isPayBox)
-          .reduce((sum: number, buyin: Buyin) => sum + buyin.amount, 0);
-          
-        if (payBoxAmount > 0) {
-          transactions.push({
-            from: "PayBox",
-            to: player.name,
-            amount: payBoxAmount,
-          });
-        }
+    let remainingMinusPlayers: { name: string; amount: number }[] = [
+      ...playersProfitAndLoss
+        .filter((player) => player.amount < 0)
+        .map((player) => ({
+          name: player.name,
+          amount: -1 * player.amount,
+        })),
+    ];
+
+    console.log(playersProfitAndLoss);
+    console.log(remainingMinusPlayers);
+    console.log(remainingPlusPlayers);
+    console.log(totalPayboxAmount);
+
+    while (
+      remainingMinusPlayers.length > 0 &&
+      remainingPlusPlayers.length > 0
+    ) {
+      // Find the player with the largest amount
+      const currentBiggestMinusPlayer = remainingMinusPlayers.reduce(
+        (biggest, player) =>
+          player.amount > biggest.amount ? player : biggest,
+        remainingMinusPlayers[0]
+      );
+
+      const currentBiggestPlusPlayer = remainingPlusPlayers.reduce(
+        (biggest, player) =>
+          player.amount > biggest.amount ? player : biggest,
+        remainingPlusPlayers[0]
+      );
+
+      const transactionAmount = Math.min(
+        currentBiggestMinusPlayer.amount,
+        currentBiggestPlusPlayer.amount
+      );
+
+      // Create a transaction
+      transactions.push({
+        from: currentBiggestMinusPlayer.name,
+        to: currentBiggestPlusPlayer.name,
+        amount: transactionAmount,
       });
-      
+
+      // Update the remaining players
+      currentBiggestMinusPlayer.amount -= transactionAmount;
+      currentBiggestPlusPlayer.amount -= transactionAmount;
+
+      // Filter out the players that have been fully processed
+      remainingMinusPlayers = remainingMinusPlayers.filter(
+        (player) => player.amount > 0
+      );
+      remainingPlusPlayers = remainingPlusPlayers.filter(
+        (player) => player.amount > 0
+      );
+    }
+
+    while (remainingPlusPlayers.length > 0 && totalPayboxAmount > 0) {
+      const currentBiggestPlusPlayer = remainingPlusPlayers.reduce(
+        (biggest, player) =>
+          player.amount > biggest.amount ? player : biggest,
+        remainingPlusPlayers[0]
+      );
+
+      const transactionAmount = currentBiggestPlusPlayer.amount;
+
+      transactions.push({
+        from: "PayBox",
+        to: currentBiggestPlusPlayer.name,
+        amount: transactionAmount,
+      });
+
+      // Update the remaining players
+      remainingPlusPlayers = remainingPlusPlayers.map((player) => ({
+        ...player,
+        amount:
+          player.name === currentBiggestPlusPlayer.name ? 0 : player.amount,
+      }));
+      totalPayboxAmount -= transactionAmount;
+
+      console.log("before", remainingPlusPlayers);
+
+      remainingPlusPlayers = remainingPlusPlayers.filter(
+        (player) => player.amount > 0
+      );
+
+      console.log("after", remainingPlusPlayers);
+    }
+
     return transactions;
   };
 
@@ -77,10 +137,7 @@ function TransactionList({ players }: TransactionListProps) {
     .filter((player) => player.buyins.length > 0)
     .every((player) => player.cashout !== null);
 
-  const transactions = [
-    ...calculateTransactions(players),
-    ...calculatePayBoxTransactions(players),
-  ];
+  const transactions = [...calculateTransactions(players)];
 
   return (
     <div>
