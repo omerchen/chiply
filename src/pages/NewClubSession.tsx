@@ -271,7 +271,7 @@ function NewClubSession() {
                     onChange={handleChange("smallBlind")}
                     error={!!error.smallBlind}
                     helperText={error.smallBlind}
-                    inputProps={{ min: 0, step: "0.5" }}
+                    inputProps={{ min: 0, step: "0.1" }}
                   />
                 </Grid>
 
@@ -284,7 +284,7 @@ function NewClubSession() {
                     onChange={handleChange("bigBlind")}
                     error={!!error.bigBlind}
                     helperText={error.bigBlind}
-                    inputProps={{ min: 0, step: "0.5" }}
+                    inputProps={{ min: 0, step: "0.1" }}
                   />
                 </Grid>
 
@@ -297,7 +297,7 @@ function NewClubSession() {
                     onChange={handleChange("ante")}
                     error={!!error.ante}
                     helperText={error.ante}
-                    inputProps={{ min: 0, step: "0.5" }}
+                    inputProps={{ min: 0, step: "0.1" }}
                   />
                 </Grid>
 
