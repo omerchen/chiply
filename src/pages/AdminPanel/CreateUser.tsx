@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   Container,
   Typography,
@@ -14,7 +14,7 @@ import {
   CircularProgress,
   Chip,
   Stack,
-  SelectChangeEvent
+  SelectChangeEvent,
 } from "@mui/material";
 import PersonAddIcon from "@mui/icons-material/PersonAdd";
 import AdminBreadcrumbs from "../../components/AdminBreadcrumbs";
@@ -32,7 +32,7 @@ interface Club {
 interface SelectedClub {
   id: string;
   name: string;
-  role: 'admin' | 'member';
+  role: "admin" | "member";
 }
 
 const CreateUser: React.FC = () => {
@@ -49,21 +49,25 @@ const CreateUser: React.FC = () => {
   const [clubs, setClubs] = useState<Club[]>([]);
   const [selectedClubs, setSelectedClubs] = useState<SelectedClub[]>([]);
   const [selectedClubId, setSelectedClubId] = useState("");
-  const [selectedClubRole, setSelectedClubRole] = useState<'admin' | 'member'>('member');
+  const [selectedClubRole, setSelectedClubRole] = useState<"admin" | "member">(
+    "member"
+  );
 
   useEffect(() => {
     const fetchClubs = async () => {
       try {
-        const clubsData = await readData('clubs');
+        const clubsData = await readData("clubs");
         if (clubsData) {
-          const clubsList = Object.entries(clubsData).map(([id, club]: [string, any]) => ({
-            id,
-            name: club.name
-          }));
+          const clubsList = Object.entries(clubsData).map(
+            ([id, club]: [string, any]) => ({
+              id,
+              name: club.name,
+            })
+          );
           setClubs(clubsList);
         }
       } catch (error) {
-        console.error('Error fetching clubs:', error);
+        console.error("Error fetching clubs:", error);
       }
     };
 
@@ -82,39 +86,44 @@ const CreateUser: React.FC = () => {
 
   const handleSelectChange = (event: SelectChangeEvent<string>) => {
     const { name, value } = event.target;
-    if (name === 'systemRole') {
-      setFormData(prev => ({
+    if (name === "systemRole") {
+      setFormData((prev) => ({
         ...prev,
-        systemRole: value
+        systemRole: value,
       }));
-    } else if (name === 'clubId') {
+    } else if (name === "clubId") {
       setSelectedClubId(value);
-    } else if (name === 'clubRole') {
-      setSelectedClubRole(value as 'admin' | 'member');
+    } else if (name === "clubRole") {
+      setSelectedClubRole(value as "admin" | "member");
     }
   };
 
   const handleAddClub = () => {
     if (!selectedClubId) return;
-    
-    const club = clubs.find(c => c.id === selectedClubId);
+
+    const club = clubs.find((c) => c.id === selectedClubId);
     if (!club) return;
 
-    const isAlreadySelected = selectedClubs.some(sc => sc.id === selectedClubId);
+    const isAlreadySelected = selectedClubs.some(
+      (sc) => sc.id === selectedClubId
+    );
     if (isAlreadySelected) return;
 
-    setSelectedClubs(prev => [...prev, {
-      id: club.id,
-      name: club.name,
-      role: selectedClubRole
-    }]);
+    setSelectedClubs((prev) => [
+      ...prev,
+      {
+        id: club.id,
+        name: club.name,
+        role: selectedClubRole,
+      },
+    ]);
 
-    setSelectedClubId('');
-    setSelectedClubRole('member');
+    setSelectedClubId("");
+    setSelectedClubRole("member");
   };
 
   const handleRemoveClub = (clubId: string) => {
-    setSelectedClubs(prev => prev.filter(club => club.id !== clubId));
+    setSelectedClubs((prev) => prev.filter((club) => club.id !== clubId));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -129,26 +138,29 @@ const CreateUser: React.FC = () => {
         formData.password
       );
 
-      const clubsData = selectedClubs.reduce((acc, club) => ({
-        ...acc,
-        [club.id]: { role: club.role }
-      }), {});
+      const clubsData = selectedClubs.reduce(
+        (acc, club) => ({
+          ...acc,
+          [club.id]: { role: club.role },
+        }),
+        {}
+      );
 
       await createUserData(userCredential.user.uid, {
-        email: formData.email,
-        firstName: formData.firstName,
-        lastName: formData.lastName,
-        systemRole: formData.systemRole as 'admin' | 'member',
-        clubs: clubsData
+        email: formData.email.toLowerCase().trim(),
+        firstName: formData.firstName.trim(),
+        lastName: formData.lastName.trim(),
+        systemRole: formData.systemRole as "admin" | "member",
+        clubs: clubsData,
       });
 
-      navigate('/admin/users');
+      navigate("/admin/users");
     } catch (err) {
-      console.error('Error creating user:', err);
+      console.error("Error creating user:", err);
       if (err instanceof Error) {
         setError(err.message);
       } else {
-        setError('An unexpected error occurred');
+        setError("An unexpected error occurred");
       }
       setLoading(false);
     }
@@ -157,11 +169,9 @@ const CreateUser: React.FC = () => {
   return (
     <Container maxWidth="lg">
       <Box sx={{ mt: 4, mb: 4 }}>
-        <AdminBreadcrumbs 
-          currentPage="Create User" 
-          intermediateLinks={[
-            { label: 'User Management', to: '/admin/users' }
-          ]} 
+        <AdminBreadcrumbs
+          currentPage="Create User"
+          intermediateLinks={[{ label: "User Management", to: "/admin/users" }]}
         />
         <Box display="flex" alignItems="center" mb={3}>
           <PersonAddIcon sx={{ fontSize: 40, mr: 2, color: "#673ab7" }} />
@@ -243,11 +253,14 @@ const CreateUser: React.FC = () => {
               >
                 <MenuItem value="">Select Club</MenuItem>
                 {clubs
-                  .filter(club => !selectedClubs.some(sc => sc.id === club.id))
-                  .map(club => (
-                    <MenuItem key={club.id} value={club.id}>{club.name}</MenuItem>
-                  ))
-                }
+                  .filter(
+                    (club) => !selectedClubs.some((sc) => sc.id === club.id)
+                  )
+                  .map((club) => (
+                    <MenuItem key={club.id} value={club.id}>
+                      {club.name}
+                    </MenuItem>
+                  ))}
               </Select>
             </FormControl>
 
@@ -281,7 +294,7 @@ const CreateUser: React.FC = () => {
                   Selected Clubs:
                 </Typography>
                 <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                  {selectedClubs.map(club => (
+                  {selectedClubs.map((club) => (
                     <Chip
                       key={club.id}
                       label={`${club.name} (${club.role})`}

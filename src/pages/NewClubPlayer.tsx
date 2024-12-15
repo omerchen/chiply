@@ -142,7 +142,7 @@ function NewClubPlayer() {
 
       // Create player document with ID as key
       await writeData(`players/${newPlayerId}`, {
-        email: email.trim(),
+        email: email.toLowerCase().trim(),
         firstName: firstName.trim(),
         lastName: lastName.trim(),
       });

@@ -1502,7 +1502,7 @@ export default function PlayerDashboard({
           {/* Timeline Chart */}
           <Box sx={{ mb: 4 }}>
             <TimelineCard
-              title={`Total P&L (${dashboardUnit === "cash" ? "₪" : "BB"})`}
+              title={`Total P&L (${dashboardUnit === "cash" ? "���" : "BB"})`}
               data={getTimelineData}
               yAxisLabel={
                 dashboardUnit === "cash" ? "Profit (₪)" : "Profit (BB)"
@@ -1554,6 +1554,67 @@ export default function PlayerDashboard({
       >
         <DownloadIcon />
       </Fab>
+
+      {/* Custom Date Range Dialog */}
+      <Dialog 
+        open={isCustomDatePickerOpen} 
+        onClose={() => setIsCustomDatePickerOpen(false)}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>Select Custom Date Range</DialogTitle>
+        <DialogContent>
+          <LocalizationProvider dateAdapter={AdapterDateFns}>
+            <Stack spacing={3} sx={{ mt: 2 }}>
+              <DatePicker
+                label="Start Date"
+                value={customDateRange.start}
+                onChange={(newValue) => {
+                  setCustomDateRange(prev => ({
+                    ...prev,
+                    start: newValue
+                  }));
+                }}
+                slotProps={{
+                  textField: {
+                    fullWidth: true,
+                    variant: "outlined"
+                  }
+                }}
+              />
+              <DatePicker
+                label="End Date"
+                value={customDateRange.end}
+                onChange={(newValue) => {
+                  setCustomDateRange(prev => ({
+                    ...prev,
+                    end: newValue
+                  }));
+                }}
+                slotProps={{
+                  textField: {
+                    fullWidth: true,
+                    variant: "outlined"
+                  }
+                }}
+                minDate={customDateRange.start || undefined}
+              />
+            </Stack>
+          </LocalizationProvider>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setIsCustomDatePickerOpen(false)}>
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleCustomDateRangeConfirm}
+            variant="contained"
+            disabled={!customDateRange.start || !customDateRange.end}
+          >
+            Apply
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 }

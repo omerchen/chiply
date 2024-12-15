@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState } from "react";
+import { Link } from "react-router-dom";
 import {
   Container,
   Paper,
@@ -11,45 +11,51 @@ import {
   InputAdornment,
   CircularProgress,
   Box,
-} from '@mui/material';
-import { Visibility, VisibilityOff } from '@mui/icons-material';
-import { sendSignUpLink } from '../services/auth';
+} from "@mui/material";
+import { Visibility, VisibilityOff } from "@mui/icons-material";
+import { sendSignUpLink } from "../services/auth";
 
 function SignUp() {
   const [formData, setFormData] = useState({
-    email: '',
-    password: '',
-    confirmPassword: '',
-    firstName: '',
-    lastName: '',
+    email: "",
+    password: "",
+    confirmPassword: "",
+    firstName: "",
+    lastName: "",
   });
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      [name]: value
+      [name]: value,
     }));
   };
 
   const validateForm = () => {
-    if (!formData.email || !formData.password || !formData.confirmPassword || !formData.firstName || !formData.lastName) {
-      setError('Please fill in all fields');
+    if (
+      !formData.email ||
+      !formData.password ||
+      !formData.confirmPassword ||
+      !formData.firstName ||
+      !formData.lastName
+    ) {
+      setError("Please fill in all fields");
       return false;
     }
 
     if (formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match');
+      setError("Passwords do not match");
       return false;
     }
 
     if (formData.password.length < 6) {
-      setError('Password must be at least 6 characters long');
+      setError("Password must be at least 6 characters long");
       return false;
     }
 
@@ -58,8 +64,8 @@ function SignUp() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
-    setSuccess('');
+    setError("");
+    setSuccess("");
 
     if (!validateForm()) {
       return;
@@ -69,26 +75,26 @@ function SignUp() {
 
     try {
       await sendSignUpLink({
-        email: formData.email,
-        password: formData.password,
-        firstName: formData.firstName,
-        lastName: formData.lastName,
+        email: formData.email.toLowerCase().trim(),
+        password: formData.password.trim(),
+        firstName: formData.firstName.trim(),
+        lastName: formData.lastName.trim(),
       });
 
-      setSuccess('Please check your email to complete registration!');
+      setSuccess("Please check your email to complete registration!");
       setFormData({
-        email: '',
-        password: '',
-        confirmPassword: '',
-        firstName: '',
-        lastName: '',
+        email: "",
+        password: "",
+        confirmPassword: "",
+        firstName: "",
+        lastName: "",
       });
     } catch (err) {
-      console.error('Sign up error:', err);
+      console.error("Sign up error:", err);
       if (err instanceof Error) {
         setError(err.message);
       } else {
-        setError('An unexpected error occurred. Please try again.');
+        setError("An unexpected error occurred. Please try again.");
       }
     }
 
@@ -98,7 +104,13 @@ function SignUp() {
   return (
     <Container maxWidth="sm" sx={{ mt: 8 }}>
       <Paper elevation={3} sx={{ p: 4 }}>
-        <Typography variant="h4" component="h1" gutterBottom align="center" sx={{ color: '#673ab7' }}>
+        <Typography
+          variant="h4"
+          component="h1"
+          gutterBottom
+          align="center"
+          sx={{ color: "#673ab7" }}
+        >
           Sign Up for Chiply
         </Typography>
 
@@ -151,7 +163,7 @@ function SignUp() {
 
           <TextField
             name="password"
-            type={showPassword ? 'text' : 'password'}
+            type={showPassword ? "text" : "password"}
             label="Password"
             value={formData.password}
             onChange={handleChange}
@@ -175,7 +187,7 @@ function SignUp() {
 
           <TextField
             name="confirmPassword"
-            type={showConfirmPassword ? 'text' : 'password'}
+            type={showConfirmPassword ? "text" : "password"}
             label="Confirm Password"
             value={formData.confirmPassword}
             onChange={handleChange}
@@ -202,22 +214,29 @@ function SignUp() {
             variant="contained"
             fullWidth
             disabled={loading}
-            sx={{ 
-              mt: 3, 
+            sx={{
+              mt: 3,
               mb: 2,
-              bgcolor: '#673ab7',
-              '&:hover': {
-                bgcolor: '#563098'
-              }
+              bgcolor: "#673ab7",
+              "&:hover": {
+                bgcolor: "#563098",
+              },
             }}
           >
-            {loading ? <CircularProgress size={24} color="inherit" /> : 'Sign Up'}
+            {loading ? (
+              <CircularProgress size={24} color="inherit" />
+            ) : (
+              "Sign Up"
+            )}
           </Button>
 
-          <Box sx={{ textAlign: 'center' }}>
+          <Box sx={{ textAlign: "center" }}>
             <Typography variant="body2" color="text.secondary">
-              Already have an account?{' '}
-              <Link to="/login" style={{ color: '#673ab7', textDecoration: 'none' }}>
+              Already have an account?{" "}
+              <Link
+                to="/login"
+                style={{ color: "#673ab7", textDecoration: "none" }}
+              >
                 Login here
               </Link>
             </Typography>
@@ -228,4 +247,4 @@ function SignUp() {
   );
 }
 
-export default SignUp; 
+export default SignUp;
