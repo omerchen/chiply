@@ -164,35 +164,6 @@ export default function PlayerDashboard({
           });
         }
 
-        // Fetch club names for the provided club IDs
-        const clubsData = await readData("clubs");
-        if (clubsData) {
-          const playerClubs = clubIds
-            .map((id) => ({
-              id,
-              name: clubsData[id]?.name || "Unknown Club",
-              type: "club" as const,
-            }))
-            .filter((club) => club.name !== "Unknown Club");
-
-          // Get unique locations from manual sessions
-          const manualLocations = manualSessionsData
-            ? Object.values(manualSessionsData)
-                .filter((session: any) => session.location)
-                .map((session: any) => session.location)
-                .filter(
-                  (location, index, self) => self.indexOf(location) === index
-                )
-                .map((location) => ({
-                  id: `location-${location}`,
-                  name: location,
-                  type: "location" as const,
-                }))
-            : [];
-
-          setFilterLocations([...playerClubs, ...manualLocations]);
-        }
-
         // Fetch all sessions
         const [sessionsData, fetchedManualSessionsData] = await Promise.all([
           readData("sessions"),
@@ -553,22 +524,37 @@ export default function PlayerDashboard({
   };
 
   const getSessionsByClub = useMemo((): PieChartData[] => {
-    const sessionsByClub = (
+    const sessionsByLocation = (
       filteredPlayerSessions as ExtendedPlayerSessionData[]
     ).reduce((acc: { [key: string]: number }, session) => {
-      const clubName =
-        clubs.find((club) => club.id === session.clubId)?.name ||
-        "Unknown Club";
-      acc[clubName] = (acc[clubName] || 0) + 1;
+      // Find the full session data
+      const fullSession = allSessions.find((s) => s.id === session.sessionId);
+      if (!fullSession) return acc;
+
+      let locationName: string;
+
+      if (fullSession.details.type === "manual") {
+        // For manual sessions, use the location from manualSessionsData
+        locationName =
+          manualSessionsData?.[session.sessionId]?.location ||
+          "Unknown Location";
+      } else {
+        // For club sessions, use the club name
+        locationName =
+          clubs.find((club) => club.id === session.clubId)?.name ||
+          "Unknown Club";
+      }
+
+      acc[locationName] = (acc[locationName] || 0) + 1;
       return acc;
     }, {});
 
-    return Object.entries(sessionsByClub).map(([clubName, count]) => ({
-      id: clubName,
-      label: clubName,
+    return Object.entries(sessionsByLocation).map(([locationName, count]) => ({
+      id: locationName,
+      label: locationName,
       value: count,
     }));
-  }, [filteredPlayerSessions, clubs]);
+  }, [filteredPlayerSessions, clubs, allSessions, manualSessionsData]);
 
   const getSessionsByStakes = useMemo((): PieChartData[] => {
     const sessionsByStakes = (
@@ -774,12 +760,67 @@ export default function PlayerDashboard({
     }
   };
 
-  // Add this useEffect after the other useEffects
+  // Update the useEffect that sets filter locations to depend on manualSessionsData
   useEffect(() => {
-    if (defaultClubId && isClubFilterReadOnly) {
-      setSelectedLocationId(defaultClubId);
-    }
-  }, [defaultClubId, isClubFilterReadOnly]);
+    const updateFilterLocations = async () => {
+      try {
+        // Fetch club names for the provided club IDs
+        const clubsData = await readData("clubs");
+        if (clubsData) {
+          const playerClubs = clubIds
+            .map((id) => ({
+              id,
+              name: clubsData[id]?.name || "Unknown Club",
+              type: "club" as const,
+            }))
+            .filter((club) => club.name !== "Unknown Club");
+
+          // Get unique locations from manual sessions
+          const manualLocations = manualSessionsData
+            ? Object.values(manualSessionsData)
+                .filter((session: any) => session.location)
+                .map((session: any) => session.location)
+                .filter(
+                  (location, index, self) => self.indexOf(location) === index
+                )
+                .map((location) => ({
+                  id: `location-${location}`,
+                  name: location,
+                  type: "location" as const,
+                }))
+            : [];
+
+          setFilterLocations([...playerClubs, ...manualLocations]);
+        }
+      } catch (error) {
+        console.error("Error updating filter locations:", error);
+      }
+    };
+
+    updateFilterLocations();
+  }, [clubIds, manualSessionsData]); // Add manualSessionsData as a dependency
+
+  // Move the clubs data fetching logic to a separate useEffect
+  useEffect(() => {
+    const fetchClubs = async () => {
+      try {
+        const clubsData = await readData("clubs");
+        if (clubsData) {
+          const playerClubs = clubIds
+            .map((id) => ({
+              id,
+              name: clubsData[id]?.name || "Unknown Club",
+            }))
+            .filter((club) => club.name !== "Unknown Club");
+          setClubs(playerClubs);
+        }
+      } catch (error) {
+        console.error("Error fetching clubs:", error);
+      }
+    };
+
+    fetchClubs();
+  }, [clubIds]);
 
   if (loading) {
     return (
@@ -920,7 +961,7 @@ export default function PlayerDashboard({
                   disabled={isClubFilterReadOnly}
                 >
                   <MenuItem value="">
-                    <em>All Locations</em>
+                    <em>All Club/Locations</em>
                   </MenuItem>
                   {filterLocations.length > 0 && [
                     // Club group
@@ -1480,9 +1521,9 @@ export default function PlayerDashboard({
           <Grid container spacing={3} sx={{ mt: 2, mb: 4 }}>
             <Grid item xs={12} md={6}>
               <PieChartCard
-                title="Sessions by Club"
+                title="Sessions by Club/Location"
                 data={getSessionsByClub}
-                tooltip="Distribution of poker sessions across different clubs"
+                tooltip="Distribution of poker sessions across different clubs and locations"
               />
             </Grid>
             <Grid item xs={12} md={6}>
