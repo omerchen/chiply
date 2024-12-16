@@ -344,10 +344,14 @@ export default function PlayerDashboard({
               if (isManualSession) {
                 // For manual sessions, check if any selected location matches
                 const manualSession = manualSessionsData?.[session.id];
-                const locationMatches = selectedLocationIds.some(locId => {
-                  const selectedLocation = filterLocations.find(loc => loc.id === locId);
-                  return selectedLocation?.type === 'location' && 
-                         manualSession?.location === selectedLocation.name;
+                const locationMatches = selectedLocationIds.some((locId) => {
+                  const selectedLocation = filterLocations.find(
+                    (loc) => loc.id === locId
+                  );
+                  return (
+                    selectedLocation?.type === "location" &&
+                    manualSession?.location === selectedLocation.name
+                  );
                 });
                 if (!locationMatches) return false;
               } else {
@@ -821,11 +825,13 @@ export default function PlayerDashboard({
   const handleLocationChange = (event: SelectChangeEvent<string[]>) => {
     const value = event.target.value;
     // On autofill we get a stringified value.
-    setSelectedLocationIds(typeof value === 'string' ? value.split(',') : value);
+    setSelectedLocationIds(
+      typeof value === "string" ? value.split(",") : value
+    );
   };
 
   const handleSelectAllLocations = () => {
-    setSelectedLocationIds(filterLocations.map(loc => loc.id));
+    setSelectedLocationIds(filterLocations.map((loc) => loc.id));
   };
 
   const handleClearAllLocations = () => {
@@ -974,34 +980,45 @@ export default function PlayerDashboard({
                       return <em>All Clubs/Locations</em>;
                     }
                     return selected
-                      .map(id => filterLocations.find(loc => loc.id === id)?.name)
+                      .map(
+                        (id) =>
+                          filterLocations.find((loc) => loc.id === id)?.name
+                      )
                       .filter(Boolean)
-                      .join(', ');
+                      .join(", ");
                   }}
                   disabled={isClubFilterReadOnly}
                 >
-                  <Box sx={{ 
-                    position: 'sticky', 
-                    top: 0, 
-                    bgcolor: 'background.paper',
-                    zIndex: 1,
-                    borderBottom: '1px solid',
-                    borderColor: 'divider',
-                    p: 1
-                  }}>
+                  <Box
+                    sx={{
+                      position: "sticky",
+                      top: 0,
+                      bgcolor: "background.paper",
+                      zIndex: 1,
+                      borderBottom: "1px solid",
+                      borderColor: "divider",
+                      p: 1,
+                    }}
+                  >
                     <Stack direction="row" spacing={1}>
                       <Button
                         size="small"
-                        onMouseDown={(e: React.MouseEvent<HTMLButtonElement>) => {
+                        onMouseDown={(
+                          e: React.MouseEvent<HTMLButtonElement>
+                        ) => {
                           e.preventDefault();
                           e.stopPropagation();
-                          setSelectedLocationIds(filterLocations.map(loc => loc.id));
+                          setSelectedLocationIds(
+                            filterLocations.map((loc) => loc.id)
+                          );
                         }}
-                        disabled={selectedLocationIds.length === filterLocations.length}
-                        sx={{ 
+                        disabled={
+                          selectedLocationIds.length === filterLocations.length
+                        }
+                        sx={{
                           flex: 1,
-                          textTransform: 'none',
-                          fontSize: '0.8125rem'
+                          textTransform: "none",
+                          fontSize: "0.8125rem",
                         }}
                       >
                         Select All
@@ -1010,10 +1027,10 @@ export default function PlayerDashboard({
                         size="small"
                         onClick={handleClearAllLocations}
                         disabled={selectedLocationIds.length === 0}
-                        sx={{ 
+                        sx={{
                           flex: 1,
-                          textTransform: 'none',
-                          fontSize: '0.8125rem'
+                          textTransform: "none",
+                          fontSize: "0.8125rem",
                         }}
                       >
                         Clear All
@@ -1029,7 +1046,9 @@ export default function PlayerDashboard({
                       .filter((loc) => loc.type === "club")
                       .map((club) => (
                         <MenuItem key={club.id} value={club.id}>
-                          <Checkbox checked={selectedLocationIds.indexOf(club.id) > -1} />
+                          <Checkbox
+                            checked={selectedLocationIds.indexOf(club.id) > -1}
+                          />
                           {club.name}
                         </MenuItem>
                       )),
@@ -1043,7 +1062,11 @@ export default function PlayerDashboard({
                       .filter((loc) => loc.type === "location")
                       .map((location) => (
                         <MenuItem key={location.id} value={location.id}>
-                          <Checkbox checked={selectedLocationIds.indexOf(location.id) > -1} />
+                          <Checkbox
+                            checked={
+                              selectedLocationIds.indexOf(location.id) > -1
+                            }
+                          />
                           {location.name}
                         </MenuItem>
                       )),
@@ -1615,8 +1638,8 @@ export default function PlayerDashboard({
       </Fab>
 
       {/* Custom Date Range Dialog */}
-      <Dialog 
-        open={isCustomDatePickerOpen} 
+      <Dialog
+        open={isCustomDatePickerOpen}
         onClose={() => setIsCustomDatePickerOpen(false)}
         maxWidth="xs"
         fullWidth
@@ -1627,36 +1650,40 @@ export default function PlayerDashboard({
             <Stack spacing={3} sx={{ mt: 2 }}>
               <DatePicker
                 label="Start Date"
+                maxDate={customDateRange.end ?? new Date()}
                 value={customDateRange.start}
                 onChange={(newValue) => {
-                  setCustomDateRange(prev => ({
+                  setCustomDateRange((prev) => ({
                     ...prev,
-                    start: newValue
+                    start: newValue,
                   }));
                 }}
                 slotProps={{
                   textField: {
                     fullWidth: true,
-                    variant: "outlined"
-                  }
+                    variant: "outlined",
+                  },
                 }}
+                format="dd/MM/yyyy"
               />
               <DatePicker
                 label="End Date"
                 value={customDateRange.end}
+                maxDate={new Date()}
+                minDate={customDateRange.start || undefined}
                 onChange={(newValue) => {
-                  setCustomDateRange(prev => ({
+                  setCustomDateRange((prev) => ({
                     ...prev,
-                    end: newValue
+                    end: newValue,
                   }));
                 }}
                 slotProps={{
                   textField: {
                     fullWidth: true,
-                    variant: "outlined"
-                  }
+                    variant: "outlined",
+                  },
                 }}
-                minDate={customDateRange.start || undefined}
+                format="dd/MM/yyyy"
               />
             </Stack>
           </LocalizationProvider>
@@ -1665,7 +1692,7 @@ export default function PlayerDashboard({
           <Button onClick={() => setIsCustomDatePickerOpen(false)}>
             Cancel
           </Button>
-          <Button 
+          <Button
             onClick={handleCustomDateRangeConfirm}
             variant="contained"
             disabled={!customDateRange.start || !customDateRange.end}
