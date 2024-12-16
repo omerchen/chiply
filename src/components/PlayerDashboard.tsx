@@ -25,6 +25,9 @@ import {
   FormControlLabel,
   Fab,
   ListSubheader,
+  OutlinedInput,
+  Checkbox,
+  SelectChangeEvent,
 } from "@mui/material";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
@@ -146,7 +149,9 @@ export default function PlayerDashboard({
   const [manualSessionsData, setManualSessionsData] = useState<any>(null);
   const dashboardRef = useRef<HTMLDivElement>(null);
   const [filterLocations, setFilterLocations] = useState<FilterLocation[]>([]);
-  const [selectedLocationId, setSelectedLocationId] = useState<string>("");
+  const [selectedLocationIds, setSelectedLocationIds] = useState<string[]>(
+    defaultClubId ? [defaultClubId] : []
+  );
   const [showRatingMetricsState, setShowRatingMetricsState] = useState<boolean>(
     isRatingMetricsEnabled && showRatingMetrics
   );
@@ -334,29 +339,20 @@ export default function PlayerDashboard({
                 return false;
               }
             }
-            // Otherwise use the selected club/location filter
-            else if (selectedLocationId) {
-              const selectedLocation = filterLocations.find(
-                (loc) => loc.id === selectedLocationId
-              );
-              if (selectedLocation) {
-                if (selectedLocation.type === "club") {
-                  if (
-                    isManualSession ||
-                    session.clubId !== selectedLocationId
-                  ) {
-                    return false;
-                  }
-                } else {
-                  const manualSession = manualSessionsData?.[session.id];
-                  if (
-                    !isManualSession ||
-                    !manualSession ||
-                    manualSession.location !== selectedLocation.name
-                  ) {
-                    return false;
-                  }
-                }
+            // Otherwise use the selected locations filter
+            else if (selectedLocationIds.length > 0) {
+              if (isManualSession) {
+                // For manual sessions, check if any selected location matches
+                const manualSession = manualSessionsData?.[session.id];
+                const locationMatches = selectedLocationIds.some(locId => {
+                  const selectedLocation = filterLocations.find(loc => loc.id === locId);
+                  return selectedLocation?.type === 'location' && 
+                         manualSession?.location === selectedLocation.name;
+                });
+                if (!locationMatches) return false;
+              } else {
+                // For club sessions, check if the club is selected
+                if (!selectedLocationIds.includes(session.clubId)) return false;
               }
             }
 
@@ -414,7 +410,7 @@ export default function PlayerDashboard({
     filterSessions();
   }, [
     allSessions,
-    selectedLocationId,
+    selectedLocationIds,
     selectedStakes,
     dateRangeOption,
     customDateRange,
@@ -822,6 +818,20 @@ export default function PlayerDashboard({
     fetchClubs();
   }, [clubIds]);
 
+  const handleLocationChange = (event: SelectChangeEvent<string[]>) => {
+    const value = event.target.value;
+    // On autofill we get a stringified value.
+    setSelectedLocationIds(typeof value === 'string' ? value.split(',') : value);
+  };
+
+  const handleSelectAllLocations = () => {
+    setSelectedLocationIds(filterLocations.map(loc => loc.id));
+  };
+
+  const handleClearAllLocations = () => {
+    setSelectedLocationIds([]);
+  };
+
   if (loading) {
     return (
       <Container
@@ -955,14 +965,61 @@ export default function PlayerDashboard({
                 <Select
                   labelId="location-select-label"
                   id="location-select"
-                  value={selectedLocationId}
-                  label="Filter by Club/Location"
-                  onChange={(e) => setSelectedLocationId(e.target.value)}
+                  multiple
+                  value={selectedLocationIds}
+                  onChange={handleLocationChange}
+                  input={<OutlinedInput label="Filter by Club/Location" />}
+                  renderValue={(selected) => {
+                    if (selected.length === 0) {
+                      return <em>All Clubs/Locations</em>;
+                    }
+                    return selected
+                      .map(id => filterLocations.find(loc => loc.id === id)?.name)
+                      .filter(Boolean)
+                      .join(', ');
+                  }}
                   disabled={isClubFilterReadOnly}
                 >
-                  <MenuItem value="">
-                    <em>All Club/Locations</em>
-                  </MenuItem>
+                  <Box sx={{ 
+                    position: 'sticky', 
+                    top: 0, 
+                    bgcolor: 'background.paper',
+                    zIndex: 1,
+                    borderBottom: '1px solid',
+                    borderColor: 'divider',
+                    p: 1
+                  }}>
+                    <Stack direction="row" spacing={1}>
+                      <Button
+                        size="small"
+                        onMouseDown={(e: React.MouseEvent<HTMLButtonElement>) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setSelectedLocationIds(filterLocations.map(loc => loc.id));
+                        }}
+                        disabled={selectedLocationIds.length === filterLocations.length}
+                        sx={{ 
+                          flex: 1,
+                          textTransform: 'none',
+                          fontSize: '0.8125rem'
+                        }}
+                      >
+                        Select All
+                      </Button>
+                      <Button
+                        size="small"
+                        onClick={handleClearAllLocations}
+                        disabled={selectedLocationIds.length === 0}
+                        sx={{ 
+                          flex: 1,
+                          textTransform: 'none',
+                          fontSize: '0.8125rem'
+                        }}
+                      >
+                        Clear All
+                      </Button>
+                    </Stack>
+                  </Box>
                   {filterLocations.length > 0 && [
                     // Club group
                     filterLocations.some((loc) => loc.type === "club") && (
@@ -972,6 +1029,7 @@ export default function PlayerDashboard({
                       .filter((loc) => loc.type === "club")
                       .map((club) => (
                         <MenuItem key={club.id} value={club.id}>
+                          <Checkbox checked={selectedLocationIds.indexOf(club.id) > -1} />
                           {club.name}
                         </MenuItem>
                       )),
@@ -985,6 +1043,7 @@ export default function PlayerDashboard({
                       .filter((loc) => loc.type === "location")
                       .map((location) => (
                         <MenuItem key={location.id} value={location.id}>
+                          <Checkbox checked={selectedLocationIds.indexOf(location.id) > -1} />
                           {location.name}
                         </MenuItem>
                       )),
@@ -1502,7 +1561,7 @@ export default function PlayerDashboard({
           {/* Timeline Chart */}
           <Box sx={{ mb: 4 }}>
             <TimelineCard
-              title={`Total P&L (${dashboardUnit === "cash" ? "���" : "BB"})`}
+              title={`Total P&L (${dashboardUnit === "cash" ? "₪" : "BB"})`}
               data={getTimelineData}
               yAxisLabel={
                 dashboardUnit === "cash" ? "Profit (₪)" : "Profit (BB)"
